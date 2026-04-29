@@ -1,0 +1,1012 @@
+openapi: 3.1.0
+
+info:
+  title: NotebookLM OSS Clone API
+  version: 0.1.0
+  description: |
+    Backend API for the NotebookLM OSS Clone. All routes are served by Next.js
+    Route Handlers. The server proxies document ingestion, chat, and search to
+    an OpenRAG instance; notebook/source/note metadata is managed locally.
+
+    REQ-ID references map each endpoint to the requirements in requirements.md.
+
+    ## Frontend-only requirements (no API endpoint)
+
+    The following REQ-IDs are satisfied entirely in the browser and have no
+    corresponding API endpoint:
+
+    - REQ-005  Three-panel layout (CSS/component structure)
+    - REQ-010  Source selection checkboxes (React state; effect carried via
+               `selectedSourceIds` in POST /chat and POST /generate/* bodies)
+    - REQ-011  Source list search filter (client-side string filter, no server call)
+    - REQ-014  Chat history display (React state; conversation continuity via
+               `chatId` round-trip in the chat endpoint)
+    - REQ-015  Loading indicator while streaming (React state; signals are the
+               first SSE token arriving and the `done` event closing the stream)
+    - REQ-022  Empty state guidance (conditional rendering based on source count)
+    - REQ-023  Error communication (frontend displays errors from API responses;
+               the API contract is defined by the reusable error response schemas)
+
+servers:
+  - url: http://localhost:3001
+    description: Local development server (Next.js app)
+
+tags:
+  - name: notebooks
+    description: "Notebook CRUD — REQ-001, REQ-002, REQ-003, REQ-004"
+  - name: sources
+    description: |
+      Source management — REQ-006, REQ-007, REQ-008, REQ-009, REQ-012.
+      REQ-010 (source selection) has no dedicated endpoint: selection state lives in
+      the browser and is passed as `selectedSourceIds` to the chat and generate endpoints.
+      REQ-011 (source search) is a client-side display filter with no server involvement.
+  - name: chat
+    description: |
+      Streaming RAG chat — REQ-013, REQ-016.
+      REQ-014 (history display) is React state; conversation continuity is achieved via
+      the `chatId` field in the request/response contract of this endpoint.
+      REQ-015 (loading indicator) is frontend UX triggered by SSE stream open/close.
+  - name: notes
+    description: "Note CRUD — REQ-017, REQ-019, REQ-020, REQ-021"
+  - name: generate
+    description: "AI-generated studio artifacts — REQ-018, REQ-024, REQ-025"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────────────────────────────────────
+paths:
+
+  # ── Notebooks ──────────────────────────────────────────────────────────────
+
+  /api/notebooks:
+    get:
+      operationId: listNotebooks
+      summary: List all notebooks
+      description: "REQ-002 — Returns all notebooks sorted by createdAt descending."
+      tags: [notebooks]
+      responses:
+        "200":
+          description: Notebook list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [notebooks]
+                properties:
+                  notebooks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/NotebookSummary"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      operationId: createNotebook
+      summary: Create a notebook
+      description: "REQ-001 — Creates a new notebook and a corresponding OpenRAG knowledge filter."
+      tags: [notebooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  example: "Physics Notes"
+      responses:
+        "201":
+          description: Notebook created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notebook"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/notebooks/{notebookId}:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+
+    get:
+      operationId: getNotebook
+      summary: Get a notebook
+      description: "REQ-002 — Fetches a single notebook with its source count and note count."
+      tags: [notebooks]
+      responses:
+        "200":
+          description: Notebook detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notebook"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    patch:
+      operationId: updateNotebook
+      summary: Rename a notebook
+      description: "REQ-003 — Updates the notebook name. Empty name is rejected."
+      tags: [notebooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  example: "Advanced Physics"
+      responses:
+        "200":
+          description: Updated notebook
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notebook"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      operationId: deleteNotebook
+      summary: Delete a notebook
+      description: |
+        REQ-004 — Deletes the notebook, all its sources (including removing them
+        from OpenRAG), all its notes, and its OpenRAG knowledge filter.
+      tags: [notebooks]
+      responses:
+        "204":
+          description: Notebook deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ── Sources ────────────────────────────────────────────────────────────────
+
+  /api/notebooks/{notebookId}/sources:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+
+    get:
+      operationId: listSources
+      summary: List sources in a notebook
+      description: "REQ-009 — Returns all sources for the notebook, ordered by createdAt ascending."
+      tags: [sources]
+      responses:
+        "200":
+          description: Source list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sources]
+                properties:
+                  sources:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Source"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/notebooks/{notebookId}/sources/text:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+
+    post:
+      operationId: addTextSource
+      summary: Add a plain-text source
+      description: |
+        REQ-006 — Accepts pasted text, ingests it to OpenRAG as a .txt file,
+        and updates the notebook knowledge filter.
+        Returns 409 if identical text content already exists as a source.
+      tags: [sources]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                title:
+                  type: string
+                  description: "Optional. Defaults to first line of body, truncated to 60 chars."
+                body:
+                  type: string
+                  minLength: 1
+                  description: Plain text content.
+      responses:
+        "201":
+          description: Source created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Source"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/notebooks/{notebookId}/sources/file:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+
+    post:
+      operationId: addFileSource
+      summary: Upload a PDF source
+      description: |
+        REQ-007 — Accepts a multipart PDF upload, ingests to OpenRAG, and
+        updates the notebook knowledge filter.
+        Returns 400 for non-PDF files.
+        Returns 409 if a source with the same filename already exists.
+        Returns 422 if the PDF cannot be parsed (corrupted / password-protected).
+      tags: [sources]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF file. Must have content-type application/pdf.
+                title:
+                  type: string
+                  description: "Optional. Defaults to filename without extension."
+      responses:
+        "201":
+          description: Source created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Source"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/notebooks/{notebookId}/sources/url:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+
+    post:
+      operationId: addUrlSource
+      summary: Add a URL source
+      description: |
+        REQ-008 — Fetches the page server-side, extracts readable text, ingests
+        to OpenRAG as .txt, and updates the notebook knowledge filter.
+        Returns 409 if the same URL already exists as a source.
+        Returns 422 if the URL is unreachable or yields no readable text.
+      tags: [sources]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  example: "https://en.wikipedia.org/wiki/Retrieval-augmented_generation"
+                title:
+                  type: string
+                  description: "Optional. Defaults to the page <title> element."
+      responses:
+        "201":
+          description: Source created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Source"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/notebooks/{notebookId}/sources/{sourceId}:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+      - $ref: "#/components/parameters/sourceId"
+
+    delete:
+      operationId: deleteSource
+      summary: Remove a source from a notebook
+      description: |
+        REQ-012 — Deletes the source record, removes the document from OpenRAG,
+        and updates the notebook knowledge filter. Existing notes are not altered.
+      tags: [sources]
+      responses:
+        "204":
+          description: Source removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ── Chat ───────────────────────────────────────────────────────────────────
+
+  /api/notebooks/{notebookId}/chat:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+
+    post:
+      operationId: chatWithSources
+      summary: Send a chat message (streaming SSE)
+      description: |
+        REQ-013, REQ-016 (partial) — Sends a message to OpenRAG scoped to the
+        selected sources via a knowledge filter. Streams the response as
+        Server-Sent Events.
+
+        REQ-010 (source selection) is implemented here: `selectedSourceIds`
+        determines which knowledge filter is applied. If it equals all source IDs
+        the notebook's persistent filter is used; otherwise an ephemeral filter
+        is created, used, then deleted in a finally block.
+
+        REQ-014 (conversation continuity) is implemented here: the `chatId`
+        returned in the `done` event must be passed back in subsequent requests
+        to maintain conversation context within a session.
+
+        If selectedSourceIds is empty the server returns 400.
+
+        SSE event types:
+          - `content`  — incremental token delta
+          - `sources`  — source citations for the response
+          - `done`     — stream complete, carries chatId
+          - `error`    — unrecoverable error during generation
+      tags: [chat]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message, selectedSourceIds]
+              properties:
+                message:
+                  type: string
+                  minLength: 1
+                  example: "What is the maximum HP of the Azur character?"
+                selectedSourceIds:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                  description: IDs of sources to include in context. Must not be empty.
+                chatId:
+                  type: ["string", "null"]
+                  description: "OpenRAG chat ID from a previous response. Null or omitted starts a new conversation."
+      responses:
+        "200":
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Newline-delimited SSE events. Each event has the form:
+                    event: {type}\ndata: {json}\n\n
+
+                  Event payloads:
+                    content: { "delta": "string" }
+                    sources: { "sources": [ { "title": "string", "filename": "string" } ] }
+                    done:    { "chatId": "string" }
+                    error:   { "error": "string" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ── Notes ──────────────────────────────────────────────────────────────────
+
+  /api/notebooks/{notebookId}/notes:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+
+    get:
+      operationId: listNotes
+      summary: List notes in a notebook
+      description: "REQ-017 — Returns all notes ordered by createdAt descending."
+      tags: [notes]
+      responses:
+        "200":
+          description: Note list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [notes]
+                properties:
+                  notes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Note"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      operationId: createNote
+      summary: Create a note
+      description: |
+        REQ-016 (type=chat), REQ-019 (type=manual) — Creates a manual or
+        chat-saved note. AI-generated notes (overview, table, mindmap) are
+        created via /generate/* endpoints instead.
+      tags: [notes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNoteRequest"
+      responses:
+        "201":
+          description: Note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/notebooks/{notebookId}/notes/{noteId}:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+      - $ref: "#/components/parameters/noteId"
+
+    patch:
+      operationId: updateNote
+      summary: Edit a note
+      description: |
+        REQ-020 — Updates the title and/or body of any note type.
+        For table and mindmap notes only the title can be edited via this
+        endpoint; structured data is not hand-editable in the MVP.
+        Empty body is rejected.
+      tags: [notes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                body:
+                  type: string
+                  minLength: 1
+                  description: "Only applicable for manual, chat, and overview note types."
+              minProperties: 1
+      responses:
+        "200":
+          description: Updated note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      operationId: deleteNote
+      summary: Delete a note
+      description: "REQ-021 — Deletes a note. Irreversible."
+      tags: [notes]
+      responses:
+        "204":
+          description: Note deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ── Generation ─────────────────────────────────────────────────────────────
+
+  /api/notebooks/{notebookId}/generate/overview:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+
+    post:
+      operationId: generateOverview
+      summary: Generate an overview note
+      description: |
+        REQ-018 — Calls OpenRAG chat with a summarisation prompt scoped to the
+        selected sources. Saves the result as a new note of type "overview".
+        Each call creates a new note; existing overview notes are not replaced.
+        REQ-010 (source selection) is applied via `selectedSourceIds`.
+      tags: [generate]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [selectedSourceIds]
+              properties:
+                selectedSourceIds:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+      responses:
+        "201":
+          description: Overview note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/notebooks/{notebookId}/generate/table:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+
+    post:
+      operationId: generateTable
+      summary: Generate a data table note
+      description: |
+        REQ-024 — Calls OpenRAG chat with a structured extraction prompt scoped
+        to the selected sources. The model returns JSON with headers and rows.
+        Returns 422 if no clear tabular data can be extracted.
+        Saves the result as a new note of type "table".
+        REQ-010 (source selection) is applied via `selectedSourceIds`.
+      tags: [generate]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [selectedSourceIds]
+              properties:
+                selectedSourceIds:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                prompt:
+                  type: ["string", "null"]
+                  description: |
+                    Optional focus prompt, e.g. "Compare each character's HP,
+                    class, and abilities". Omit to let the AI decide.
+                  example: "Compare each character's HP, class, and special abilities"
+      responses:
+        "201":
+          description: Data table note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/notebooks/{notebookId}/generate/mindmap:
+    parameters:
+      - $ref: "#/components/parameters/notebookId"
+
+    post:
+      operationId: generateMindMap
+      summary: Generate a mind map note
+      description: |
+        REQ-025 — Calls OpenRAG chat with a concept-extraction prompt scoped to
+        the selected sources. The model returns JSON with nodes and edges.
+        Returns 422 if fewer than two distinct concepts are identified.
+        Saves the result as a new note of type "mindmap".
+        REQ-010 (source selection) is applied via `selectedSourceIds`.
+      tags: [generate]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [selectedSourceIds]
+              properties:
+                selectedSourceIds:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                topic:
+                  type: ["string", "null"]
+                  description: |
+                    Optional focus topic, e.g. "Combat mechanics". Omit to let
+                    the AI select the central concept.
+                  example: "Combat mechanics"
+      responses:
+        "201":
+          description: Mind map note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────────────────────────────────────────
+components:
+
+  # ── Parameters ─────────────────────────────────────────────────────────────
+  parameters:
+
+    notebookId:
+      name: notebookId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: UUID of the notebook.
+
+    sourceId:
+      name: sourceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: UUID of the source.
+
+    noteId:
+      name: noteId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: UUID of the note.
+
+  # ── Schemas ────────────────────────────────────────────────────────────────
+  schemas:
+
+    NotebookSummary:
+      type: object
+      required: [id, name, sourceCount, noteCount, createdAt]
+      properties:
+        id:
+          type: string
+          example: "nb_abc123"
+        name:
+          type: string
+          example: "Physics Notes"
+        sourceCount:
+          type: integer
+          minimum: 0
+        noteCount:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+
+    Notebook:
+      allOf:
+        - $ref: "#/components/schemas/NotebookSummary"
+        - type: object
+          required: [openragFilterId]
+          properties:
+            openragFilterId:
+              type: string
+              description: ID of the associated OpenRAG knowledge filter.
+              example: "filter_xyz789"
+
+    Source:
+      type: object
+      required: [id, notebookId, title, type, openragFilename, createdAt]
+      properties:
+        id:
+          type: string
+          example: "src_def456"
+        notebookId:
+          type: string
+          example: "nb_abc123"
+        title:
+          type: string
+          example: "Lecture 3 — Thermodynamics"
+        type:
+          type: string
+          enum: [text, pdf, url]
+        url:
+          type: ["string", "null"]
+          format: uri
+          description: "Populated for type=url only."
+        openragFilename:
+          type: string
+          description: Filename key used in OpenRAG for this document.
+          example: "nb_abc123-src_def456.pdf"
+        createdAt:
+          type: string
+          format: date-time
+
+    Note:
+      type: object
+      required: [id, notebookId, title, type, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          example: "note_ghi789"
+        notebookId:
+          type: string
+          example: "nb_abc123"
+        title:
+          type: string
+          example: "What is the max HP of Azur?"
+        type:
+          type: string
+          enum: [manual, chat, overview, table, mindmap]
+        body:
+          type: ["string", "null"]
+          description: "Plain text content. Present for manual, chat, and overview types."
+        tableData:
+          type: ["object", "null"]
+          description: "Present for type=table only."
+          required: [headers, rows]
+          properties:
+            headers:
+              type: array
+              items:
+                type: string
+              example: ["Character", "Class", "HP", "Special Ability"]
+            rows:
+              type: array
+              items:
+                type: array
+                items:
+                  type: string
+              example: [["Azur", "Mage", "28", "Chain Lightning"]]
+        mindMapData:
+          type: ["object", "null"]
+          description: "Present for type=mindmap only."
+          required: [nodes, edges]
+          properties:
+            nodes:
+              type: array
+              items:
+                type: object
+                required: [id, label]
+                properties:
+                  id:
+                    type: string
+                  label:
+                    type: string
+              example: [{"id": "n1", "label": "Combat"}, {"id": "n2", "label": "Damage Types"}]
+            edges:
+              type: array
+              items:
+                type: object
+                required: [from, to, label]
+                properties:
+                  from:
+                    type: string
+                  to:
+                    type: string
+                  label:
+                    type: string
+              example: [{"from": "n1", "to": "n2", "label": "includes"}]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateNoteRequest:
+      oneOf:
+        - title: ManualNoteRequest
+          description: "REQ-019 — User-written note. Title is optional."
+          type: object
+          required: [type, body]
+          additionalProperties: false
+          properties:
+            type:
+              type: string
+              enum: [manual]
+            title:
+              type: string
+              minLength: 1
+              description: "Optional. Defaults to first line of body truncated to 60 chars, or 'Untitled Note'."
+            body:
+              type: string
+              minLength: 1
+        - title: ChatNoteRequest
+          description: "REQ-016 — Note saved from an AI chat response. Title is required (the user's question)."
+          type: object
+          required: [type, title, body]
+          additionalProperties: false
+          properties:
+            type:
+              type: string
+              enum: [chat]
+            title:
+              type: string
+              minLength: 1
+              maxLength: 60
+              description: "The user's question that prompted the response, truncated to 60 chars."
+            body:
+              type: string
+              minLength: 1
+              description: "The full AI response text."
+      discriminator:
+        propertyName: type
+
+    ChatSourceRef:
+      type: object
+      required: [title, filename]
+      properties:
+        title:
+          type: string
+        filename:
+          type: string
+          description: OpenRAG filename of the source.
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+          example: "Notebook not found."
+        code:
+          type: ["string", "null"]
+          description: Optional machine-readable error code.
+          example: "NOTEBOOK_NOT_FOUND"
+
+  # ── Reusable Responses ─────────────────────────────────────────────────────
+  responses:
+
+    BadRequest:
+      description: "400 — Invalid input (missing required field, empty string, wrong type)."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "name must not be empty."
+            code: "VALIDATION_ERROR"
+
+    NotFound:
+      description: "404 — The requested resource does not exist."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Notebook not found."
+            code: "NOT_FOUND"
+
+    Conflict:
+      description: "409 — A duplicate resource already exists."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "A source with this filename already exists in the notebook."
+            code: "DUPLICATE_SOURCE"
+
+    UnprocessableEntity:
+      description: |
+        422 — The request was well-formed but could not be processed.
+        Examples: PDF is password-protected, URL returned no readable text,
+        AI could not extract tabular data, fewer than two concepts identified.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Could not extract readable text from the provided URL."
+            code: "UNPROCESSABLE"
+
+    RateLimited:
+      description: "429 — OpenRAG rate limit reached. Retry after a short delay."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "OpenRAG rate limit exceeded. Please try again shortly."
+            code: "RATE_LIMITED"
+
+    BadGateway:
+      description: "502 — OpenRAG returned an error or is unreachable."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "OpenRAG service error. Please try again."
+            code: "OPENRAG_ERROR"
+
+    InternalServerError:
+      description: "500 — Unexpected server error."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "An unexpected error occurred."
+            code: "INTERNAL_ERROR"

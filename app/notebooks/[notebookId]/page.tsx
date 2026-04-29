@@ -1,0 +1,219 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
+import { ArrowLeft, Menu, X } from 'lucide-react'
+import { SourcesPanel } from '@/components/SourcesPanel'
+import ChatPanel from '@/components/ChatPanel'
+import NotesPanel from '@/components/NotesPanel'
+import type { Notebook, Source, Note } from '@/lib/types'
+
+type Panel = 'sources' | 'chat' | 'notes'
+
+export default function NotebookPage() {
+  const router = useRouter()
+  const params = useParams()
+  const notebookId = params.notebookId as string
+
+  const [notebook, setNotebook] = useState<Notebook | null>(null)
+  const [sources, setSources] = useState<Source[]>([])
+  const [notes, setNotes] = useState<Note[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [activePanel, setActivePanel] = useState<Panel>('chat')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notebookId])
+
+  useEffect(() => {
+    // Auto-select all sources when sources change
+    setSelectedIds(new Set(sources.map(s => s.id)))
+  }, [sources])
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    try {
+      const [nbRes, srcRes, notesRes] = await Promise.all([
+        fetch(`/api/notebooks/${notebookId}`),
+        fetch(`/api/notebooks/${notebookId}/sources`),
+        fetch(`/api/notebooks/${notebookId}/notes`),
+      ])
+
+      if (!nbRes.ok) {
+        if (nbRes.status === 404) {
+          router.push('/')
+          return
+        }
+        throw new Error('Failed to load notebook')
+      }
+
+      const nb = await nbRes.json()
+      const srcData = await srcRes.json()
+      const notesData = await notesRes.json()
+
+      setNotebook(nb)
+      setSources(srcData.sources)
+      setNotes(notesData.notes)
+    } catch (e) {
+      console.error('Load error:', e)
+      setError(e instanceof Error ? e.message : 'Failed to load notebook')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function toggleSource(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Loading notebook…</p>
+      </div>
+    )
+  }
+
+  if (error || !notebook) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-destructive mb-4">{error || 'Notebook not found'}</p>
+          <button onClick={() => router.push('/')} className="text-sm text-primary hover:underline">
+            ← Back to notebooks
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-screen flex flex-col">
+      {/* Header */}
+      <header className="border-b bg-card px-4 py-3 flex items-center gap-3">
+        <button
+          onClick={() => router.push('/')}
+          className="p-1.5 hover:bg-muted rounded-md transition-colors"
+          title="Back to notebooks"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <h1 className="text-lg font-semibold truncate flex-1">{notebook.name}</h1>
+
+        {/* Mobile panel selector */}
+        <div className="lg:hidden flex gap-1">
+          <button
+            onClick={() => setActivePanel('sources')}
+            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              activePanel === 'sources'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            Sources
+          </button>
+          <button
+            onClick={() => setActivePanel('chat')}
+            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              activePanel === 'chat'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => setActivePanel('notes')}
+            className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              activePanel === 'notes'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            Notes
+          </button>
+        </div>
+      </header>
+
+      {/* Three-panel layout */}
+      <div className="flex-1 overflow-hidden">
+        {/* Desktop: three columns */}
+        <div className="hidden lg:grid lg:grid-cols-[300px_1fr_320px] h-full">
+          <div className="border-r bg-card overflow-hidden">
+            <SourcesPanel
+              notebookId={notebookId}
+              sources={sources}
+              selectedIds={selectedIds}
+              onToggle={toggleSource}
+              onSourceAdded={load}
+              onSourceDeleted={load}
+            />
+          </div>
+          <div className="bg-background overflow-hidden">
+            <ChatPanel
+              notebookId={notebookId}
+              sources={sources}
+              selectedIds={selectedIds}
+              onNoteSaved={load}
+            />
+          </div>
+          <div className="border-l bg-card overflow-hidden">
+            <NotesPanel
+              notebookId={notebookId}
+              notes={notes}
+              sources={sources}
+              selectedIds={selectedIds}
+              onNotesChanged={load}
+            />
+          </div>
+        </div>
+
+        {/* Mobile: single panel */}
+        <div className="lg:hidden h-full">
+          {activePanel === 'sources' && (
+            <div className="h-full bg-card">
+              <SourcesPanel
+                notebookId={notebookId}
+                sources={sources}
+                selectedIds={selectedIds}
+                onToggle={toggleSource}
+                onSourceAdded={load}
+                onSourceDeleted={load}
+              />
+            </div>
+          )}
+          {activePanel === 'chat' && (
+            <div className="h-full bg-background">
+              <ChatPanel
+                notebookId={notebookId}
+                sources={sources}
+                selectedIds={selectedIds}
+                onNoteSaved={load}
+              />
+            </div>
+          )}
+          {activePanel === 'notes' && (
+            <div className="h-full bg-card">
+              <NotesPanel
+                notebookId={notebookId}
+                notes={notes}
+                sources={sources}
+                selectedIds={selectedIds}
+                onNotesChanged={load}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
