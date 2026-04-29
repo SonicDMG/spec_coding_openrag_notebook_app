@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
+import { FileText, Globe, AlignLeft, Trash2, Plus, X, Search, CheckSquare, Square, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Source } from '@/lib/types'
 import { showError } from './ErrorToast'
 
@@ -12,14 +13,20 @@ type UploadTask = {
   error?: string
 }
 
-export function SourcesPanel({ 
-  notebookId, 
-  sources, 
-  selectedIds, 
-  onToggle, 
-  onSourceAdded, 
-  onSourceDeleted 
-}: { 
+function SourceIcon({ type }: { type: Source['type'] }) {
+  if (type === 'pdf') return <FileText size={14} className="shrink-0 text-muted-foreground" />
+  if (type === 'url') return <Globe size={14} className="shrink-0 text-muted-foreground" />
+  return <AlignLeft size={14} className="shrink-0 text-muted-foreground" />
+}
+
+export function SourcesPanel({
+  notebookId,
+  sources,
+  selectedIds,
+  onToggle,
+  onSourceAdded,
+  onSourceDeleted,
+}: {
   notebookId: string
   sources: Source[]
   selectedIds: Set<string>
@@ -41,23 +48,19 @@ export function SourcesPanel({
   const filtered = sources.filter(s => s.title.toLowerCase().includes(search.toLowerCase()))
   const selectedCount = sources.filter(s => selectedIds.has(s.id)).length
 
-  function reset() { 
-    setAddMode(null)
-    setTextBody('')
-    setTextTitle('')
-    setUrlValue('')
-    setUrlTitle('')
-    setError(null)
+  function reset() {
+    setAddMode(null); setTextBody(''); setTextTitle('')
+    setUrlValue(''); setUrlTitle(''); setError(null)
   }
 
   async function addText() {
     if (!textBody.trim()) return
     setLoading(true); setError(null)
     try {
-      const res = await fetch(`/api/notebooks/${notebookId}/sources/text`, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ body: textBody, title: textTitle }) 
+      const res = await fetch(`/api/notebooks/${notebookId}/sources/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: textBody, title: textTitle }),
       })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
       reset(); onSourceAdded()
@@ -65,96 +68,59 @@ export function SourcesPanel({
     finally { setLoading(false) }
   }
 
-  async function uploadFile(task: UploadTask): Promise<void> {
-    console.log('[Upload] Starting:', task.file.name)
-    setUploadQueue(prev => prev.map(t => t.id === task.id ? { ...t, status: 'uploading' as const } : t))
-    
-    try {
-      const fd = new FormData()
-      fd.append('file', task.file)
-      const res = await fetch(`/api/notebooks/${notebookId}/sources/file`, { method: 'POST', body: fd })
-      
-      if (!res.ok) {
-        let errorMsg = 'Upload failed'
-        try {
-          const d = await res.json()
-          errorMsg = d.error || errorMsg
-        } catch {
-          if (res.status === 404) errorMsg = 'API endpoint not found'
-          else if (res.status === 502) errorMsg = 'OpenRAG service unavailable'
-          else if (res.status >= 500) errorMsg = 'Server error'
-        }
-        console.log('[Upload] Error:', task.file.name, errorMsg)
-        setUploadQueue(prev => prev.map(t => t.id === task.id ? { ...t, status: 'error' as const, error: errorMsg } : t))
-        throw new Error(errorMsg)
-      } else {
-        const isDuplicate = res.status === 200
-        console.log('[Upload] Success:', task.file.name, isDuplicate ? '(duplicate)' : '')
-        setUploadQueue(prev => prev.map(t => t.id === task.id ? { 
-          ...t, 
-          status: 'success' as const,
-          error: isDuplicate ? 'Duplicate (skipped)' : undefined
-        } : t))
-        
-        if (!isDuplicate) {
-          onSourceAdded()
-        }
-      }
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : 'Network error'
-      console.log('[Upload] Exception:', task.file.name, errorMsg)
-      setUploadQueue(prev => prev.map(t => t.id === task.id ? { ...t, status: 'error' as const, error: errorMsg } : t))
-      throw e
-    }
-  }
-
-  async function processUploadQueue(tasks: UploadTask[]) {
-    console.log('[Queue] Starting batch processing for', tasks.length, 'files')
-    
-    // Process in batches
-    for (let i = 0; i < tasks.length; i += MAX_CONCURRENT_UPLOADS) {
-      const batch = tasks.slice(i, i + MAX_CONCURRENT_UPLOADS)
-      console.log('[Queue] Processing batch', Math.floor(i / MAX_CONCURRENT_UPLOADS) + 1, ':', batch.map(t => t.file.name))
-      
-      // Upload batch in parallel and wait for all to complete
-      const batchPromises = batch.map(task => uploadFile(task))
-      await Promise.allSettled(batchPromises)
-      
-      console.log('[Queue] Batch complete')
-    }
-    
-    console.log('[Queue] All uploads complete, status will remain until manually cleared')
-    // Don't auto-clear - let user clear manually with the Clear button
-  }
-
-  function handleFileSelect(files: FileList | null) {
-    if (!files || files.length === 0) return
-    
-    const newTasks: UploadTask[] = Array.from(files).map(file => ({
-      id: `${Date.now()}-${Math.random()}`,
-      file,
-      status: 'pending' as const,
-    }))
-    
-    setUploadQueue(newTasks)
-    
-    // Start processing immediately
-    processUploadQueue(newTasks)
-  }
-
   async function addUrl() {
     if (!urlValue.trim()) return
     setLoading(true); setError(null)
     try {
-      const res = await fetch(`/api/notebooks/${notebookId}/sources/url`, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ url: urlValue, title: urlTitle }) 
+      const res = await fetch(`/api/notebooks/${notebookId}/sources/url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlValue, title: urlTitle }),
       })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
       reset(); onSourceAdded()
     } catch { setError('Failed to add URL.') }
     finally { setLoading(false) }
+  }
+
+  async function uploadFile(task: UploadTask) {
+    setUploadQueue(prev => prev.map(t => t.id === task.id ? { ...t, status: 'uploading' as const } : t))
+    try {
+      const fd = new FormData()
+      fd.append('file', task.file)
+      const res = await fetch(`/api/notebooks/${notebookId}/sources/file`, { method: 'POST', body: fd })
+      if (!res.ok) {
+        let msg = 'Upload failed'
+        try { const d = await res.json(); msg = d.error || msg } catch { /* ignore */ }
+        setUploadQueue(prev => prev.map(t => t.id === task.id ? { ...t, status: 'error' as const, error: msg } : t))
+        throw new Error(msg)
+      }
+      const isDuplicate = res.status === 200
+      setUploadQueue(prev => prev.map(t => t.id === task.id ? {
+        ...t, status: 'success' as const,
+        error: isDuplicate ? 'Duplicate — skipped' : undefined,
+      } : t))
+      if (!isDuplicate) onSourceAdded()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Network error'
+      setUploadQueue(prev => prev.map(t => t.id === task.id ? { ...t, status: 'error' as const, error: msg } : t))
+      throw e
+    }
+  }
+
+  async function processQueue(tasks: UploadTask[]) {
+    for (let i = 0; i < tasks.length; i += MAX_CONCURRENT_UPLOADS) {
+      await Promise.allSettled(tasks.slice(i, i + MAX_CONCURRENT_UPLOADS).map(uploadFile))
+    }
+  }
+
+  function handleFileSelect(files: FileList | null) {
+    if (!files?.length) return
+    const tasks: UploadTask[] = Array.from(files).map(file => ({
+      id: `${Date.now()}-${Math.random()}`, file, status: 'pending' as const,
+    }))
+    setUploadQueue(tasks)
+    processQueue(tasks)
   }
 
   async function deleteSource(id: string) {
@@ -168,156 +134,209 @@ export function SourcesPanel({
 
   async function deleteSelected() {
     const count = selectedIds.size
-    if (count === 0) return
-    if (!confirm(`Delete ${count} selected source${count > 1 ? 's' : ''}?`)) return
-    
+    if (!count || !confirm(`Delete ${count} selected source${count > 1 ? 's' : ''}?`)) return
     setLoading(true)
     try {
-      const deletePromises = Array.from(selectedIds).map(id =>
-        fetch(`/api/notebooks/${notebookId}/sources/${id}`, { method: 'DELETE' })
+      await Promise.allSettled(
+        Array.from(selectedIds).map(id => fetch(`/api/notebooks/${notebookId}/sources/${id}`, { method: 'DELETE' }))
       )
-      const results = await Promise.allSettled(deletePromises)
-      
-      const failed = results.filter(r => r.status === 'rejected').length
-      if (failed > 0) {
-        showError(`Failed to delete ${failed} source${failed > 1 ? 's' : ''}`)
-      }
-      
       onSourceDeleted()
-    } catch {
-      showError('Failed to delete sources.')
-    } finally {
-      setLoading(false)
-    }
+    } catch { showError('Failed to delete sources.') }
+    finally { setLoading(false) }
   }
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="font-semibold">Sources</h2>
-          {selectedCount > 0 && <span className="text-sm text-gray-500">({selectedCount} selected)</span>}
-        </div>
-        <div className="flex items-center gap-2">
+
+      {/* Header */}
+      <div className="p-3 border-b flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sources</span>
           {selectedCount > 0 && (
-            <button 
-              onClick={deleteSelected} 
+            <span className="text-[10px] bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 font-medium">
+              {selectedCount}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {selectedCount > 0 && (
+            <button
+              onClick={deleteSelected}
               disabled={loading}
-              className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 text-sm"
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50"
             >
-              Delete ({selectedCount})
+              <Trash2 size={11} /> Delete ({selectedCount})
             </button>
           )}
-          <button onClick={() => setAddMode('file')} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
-            + Add
+          <button
+            onClick={() => setAddMode(addMode ? null : 'file')}
+            className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-2 py-1 rounded hover:bg-primary/90"
+          >
+            {addMode ? <X size={11} /> : <Plus size={11} />}
+            {addMode ? 'Cancel' : 'Add'}
           </button>
         </div>
       </div>
 
+      {/* Add form */}
       {addMode && (
-        <div className="p-4 border-b bg-gray-50">
-          <div className="flex gap-2 mb-3">
-            <button onClick={() => setAddMode('file')} className={`px-3 py-1 rounded text-sm ${addMode === 'file' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>File</button>
-            <button onClick={() => setAddMode('text')} className={`px-3 py-1 rounded text-sm ${addMode === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>Text</button>
-            <button onClick={() => setAddMode('url')} className={`px-3 py-1 rounded text-sm ${addMode === 'url' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>URL</button>
-            <button onClick={reset} className="ml-auto px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+        <div className="p-3 border-b bg-muted/30 space-y-2">
+          {/* Type tabs */}
+          <div className="flex gap-1">
+            {(['file', 'url', 'text'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setAddMode(mode)}
+                className={`text-xs px-2.5 py-1 rounded capitalize ${
+                  addMode === mode
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
           </div>
 
           {addMode === 'file' && (
-            <div>
-              <input 
-                ref={fileInputRef}
-                type="file" 
-                multiple
-                onChange={(e) => handleFileSelect(e.target.files)} 
-                className="block w-full text-sm" 
-              />
-              <p className="text-xs text-gray-500 mt-1">Select multiple files to upload</p>
+            <div
+              className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <FileText size={20} className="mx-auto mb-1 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Click to select PDFs</p>
+              <input ref={fileInputRef} type="file" multiple accept=".pdf" className="hidden"
+                onChange={e => handleFileSelect(e.target.files)} />
             </div>
           )}
 
           {addMode === 'text' && (
-            <div className="space-y-2">
-              <input value={textTitle} onChange={e => setTextTitle(e.target.value)} placeholder="Title (optional)" className="w-full px-3 py-2 border rounded" />
-              <textarea value={textBody} onChange={e => setTextBody(e.target.value)} placeholder="Paste text here..." rows={4} className="w-full px-3 py-2 border rounded" />
-              <button onClick={addText} disabled={loading || !textBody.trim()} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm">
-                {loading ? 'Adding...' : 'Add Text'}
+            <div className="space-y-1.5">
+              <input value={textTitle} onChange={e => setTextTitle(e.target.value)}
+                placeholder="Title (optional)"
+                className="w-full border rounded px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring" />
+              <textarea value={textBody} onChange={e => setTextBody(e.target.value)}
+                placeholder="Paste text content…" rows={4}
+                className="w-full border rounded px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring resize-none" />
+              <button onClick={addText} disabled={loading || !textBody.trim()}
+                className="w-full bg-primary text-primary-foreground py-1.5 rounded text-xs font-medium disabled:opacity-50">
+                {loading ? 'Adding…' : 'Add text'}
               </button>
             </div>
           )}
 
           {addMode === 'url' && (
-            <div className="space-y-2">
-              <input value={urlTitle} onChange={e => setUrlTitle(e.target.value)} placeholder="Title (optional)" className="w-full px-3 py-2 border rounded" />
-              <input value={urlValue} onChange={e => setUrlValue(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 border rounded" />
-              <button onClick={addUrl} disabled={loading || !urlValue.trim()} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm">
-                {loading ? 'Adding...' : 'Add URL'}
+            <div className="space-y-1.5">
+              <input value={urlTitle} onChange={e => setUrlTitle(e.target.value)}
+                placeholder="Title (optional)"
+                className="w-full border rounded px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring" />
+              <input value={urlValue} onChange={e => setUrlValue(e.target.value)}
+                placeholder="https://…"
+                className="w-full border rounded px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring" />
+              <button onClick={addUrl} disabled={loading || !urlValue.trim()}
+                className="w-full bg-primary text-primary-foreground py-1.5 rounded text-xs font-medium disabled:opacity-50">
+                {loading ? 'Adding…' : 'Add URL'}
               </button>
             </div>
           )}
 
-          {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
       )}
 
+      {/* Upload queue */}
       {uploadQueue.length > 0 && (
-        <div className="p-4 border-b bg-blue-50">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-sm">Upload Queue ({uploadQueue.length})</h3>
-            <button 
-              onClick={() => setUploadQueue([])} 
-              className="text-xs text-gray-600 hover:text-gray-800 px-2 py-1 rounded hover:bg-gray-200"
-            >
+        <div className="p-3 border-b bg-muted/20 space-y-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-muted-foreground">Uploads</span>
+            <button onClick={() => setUploadQueue([])} className="text-[10px] text-muted-foreground hover:text-foreground">
               Clear
             </button>
           </div>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {uploadQueue.map(task => (
-              <div key={task.id} className="flex items-center gap-2 text-sm">
-                {task.status === 'pending' && <span className="text-gray-400">⏳</span>}
-                {task.status === 'uploading' && <span className="text-blue-600">⬆️</span>}
-                {task.status === 'success' && <span className="text-green-600">✓</span>}
-                {task.status === 'error' && <span className="text-red-600">✗</span>}
-                <span className="flex-1 truncate">{task.file.name}</span>
-                {task.error && <span className="text-xs text-red-600">{task.error}</span>}
-              </div>
-            ))}
-          </div>
+          {uploadQueue.map(task => (
+            <div key={task.id} className="flex items-center gap-2 text-xs">
+              {task.status === 'pending' && <Loader2 size={11} className="text-muted-foreground" />}
+              {task.status === 'uploading' && <Loader2 size={11} className="text-primary animate-spin" />}
+              {task.status === 'success' && <CheckCircle2 size={11} className="text-green-600 shrink-0" />}
+              {task.status === 'error' && <AlertCircle size={11} className="text-destructive shrink-0" />}
+              <span className="flex-1 truncate text-muted-foreground">{task.file.name}</span>
+              {task.error && <span className="text-destructive shrink-0">{task.error}</span>}
+            </div>
+          ))}
         </div>
       )}
 
-      <div className="p-4 border-b">
-        <input 
-          value={search} 
-          onChange={e => setSearch(e.target.value)} 
-          placeholder="Search sources..." 
-          className="w-full px-3 py-2 border rounded text-sm"
-        />
+      {/* Search */}
+      <div className="p-3 border-b">
+        <div className="relative">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search sources…"
+            className="w-full pl-7 pr-2 py-1.5 border rounded text-xs outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
       </div>
 
+      {/* Source list */}
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            {sources.length === 0 ? 'No sources yet. Add your first source above.' : 'No sources match your search.'}
+          <div className="p-6 text-center text-xs text-muted-foreground">
+            {sources.length === 0
+              ? 'No sources yet. Add your first source above.'
+              : 'No sources match your search.'}
           </div>
         ) : (
-          <div className="divide-y">
-            {filtered.map(s => (
-              <div key={s.id} className="p-4 hover:bg-gray-50 flex items-start gap-3">
-                <input 
-                  type="checkbox" 
-                  checked={selectedIds.has(s.id)} 
-                  onChange={() => onToggle(s.id)} 
-                  className="mt-1"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{s.title}</div>
-                  <div className="text-sm text-gray-500 capitalize">{s.type}</div>
-                </div>
-                <button onClick={() => deleteSource(s.id)} className="text-red-600 hover:text-red-800 text-sm">Delete</button>
-              </div>
-            ))}
-          </div>
+          <ul className="divide-y">
+            {filtered.map(s => {
+              const checked = selectedIds.has(s.id)
+              return (
+                <li key={s.id} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-muted/40 group">
+                  {/* Checkbox */}
+                  <button
+                    onClick={() => onToggle(s.id)}
+                    className="shrink-0 text-muted-foreground hover:text-primary"
+                    aria-label={checked ? 'Deselect' : 'Select'}
+                  >
+                    {checked
+                      ? <CheckSquare size={14} className="text-primary" />
+                      : <Square size={14} />}
+                  </button>
+
+                  {/* Icon */}
+                  <SourceIcon type={s.type} />
+
+                  {/* Title + meta */}
+                  <div className="flex-1 min-w-0">
+                    {s.url ? (
+                      <a
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium truncate block hover:text-primary hover:underline"
+                        title={s.title}
+                      >
+                        {s.title}
+                      </a>
+                    ) : (
+                      <p className="text-xs font-medium truncate" title={s.title}>{s.title}</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{s.type}</p>
+                  </div>
+
+                  {/* Delete */}
+                  <button
+                    onClick={() => deleteSource(s.id)}
+                    className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-opacity"
+                    aria-label="Delete source"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
         )}
       </div>
     </div>

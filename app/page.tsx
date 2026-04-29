@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, BookOpen, Pencil, Trash2, X, Check } from 'lucide-react'
+import { Plus, BookOpen, Pencil, Trash2, X, Check, Loader2, Database, FolderOpen } from 'lucide-react'
 import type { Notebook } from '@/lib/types'
 
 interface NotebookSummary extends Notebook {
@@ -14,7 +14,11 @@ export default function HomePage() {
   const router = useRouter()
   const [notebooks, setNotebooks] = useState<NotebookSummary[]>([])
   const [creating, setCreating] = useState(false)
+  const [createMode, setCreateMode] = useState<'new' | 'import'>('new')
   const [newName, setNewName] = useState('')
+  const [availableFilters, setAvailableFilters] = useState<{ id: string; name: string; description: string; documentCount: number }[]>([])
+  const [selectedFilterId, setSelectedFilterId] = useState<string>('')
+  const [filtersLoading, setFiltersLoading] = useState(false)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -24,6 +28,20 @@ export default function HomePage() {
 
   useEffect(() => { load() }, [])
   useEffect(() => { if (creating || renamingId) inputRef.current?.focus() }, [creating, renamingId])
+
+  useEffect(() => {
+    if (createMode === 'import' && creating && availableFilters.length === 0 && !filtersLoading) {
+      setFiltersLoading(true)
+      fetch('/api/openrag/filters')
+        .then(async res => {
+          if (!res.ok) throw new Error('Failed to load filters')
+          const data = await res.json()
+          setAvailableFilters(data.filters)
+        })
+        .catch(() => setError('Failed to load OpenRAG filters.'))
+        .finally(() => setFiltersLoading(false))
+    }
+  }, [createMode, creating, availableFilters.length, filtersLoading])
 
   async function load() {
     setLoading(true)
@@ -36,15 +54,24 @@ export default function HomePage() {
   }
 
   async function createNotebook() {
-    if (!newName.trim()) return
     try {
-      const res = await fetch('/api/notebooks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName.trim() }) })
+      const body = createMode === 'import' && selectedFilterId
+        ? { name: newName.trim() || undefined, filterId: selectedFilterId }
+        : { name: newName.trim() }
+      const res = await fetch('/api/notebooks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!res.ok) { const d = await res.json(); setError(d.error); return }
       const nb = await res.json()
-      setCreating(false)
-      setNewName('')
+      resetCreate()
       router.push(`/notebooks/${nb.id}`)
     } catch { setError('Failed to create notebook.') }
+  }
+
+  function resetCreate() {
+    setCreating(false)
+    setNewName('')
+    setCreateMode('new')
+    setSelectedFilterId('')
+    setAvailableFilters([])
   }
 
   async function renameNotebook(id: string) {
@@ -82,12 +109,83 @@ export default function HomePage() {
       )}
 
       {creating && (
-        <div className="mb-4 p-4 border rounded-lg bg-card flex gap-2">
+        <div className="mb-4 p-4 border rounded-lg bg-card space-y-3">
+          <div className="flex gap-1">
+            <button onClick={() => setCreateMode('new')}
+              className={`text-xs px-3 py-1 rounded font-medium transition-colors ${createMode === 'new' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+              Create new
+            </button>
+            <button onClick={() => setCreateMode('import')}
+              className={`text-xs px-3 py-1 rounded font-medium transition-colors ${createMode === 'import' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}>
+              Import from OpenRAG
+            </button>
+          </div>
+
           <input ref={inputRef} value={newName} onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') createNotebook(); if (e.key === 'Escape') { setCreating(false); setNewName('') } }}
-            placeholder="Notebook name" className="flex-1 border rounded px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
-          <button onClick={createNotebook} className="bg-primary text-primary-foreground px-3 py-1.5 rounded text-sm font-medium">Create</button>
-          <button onClick={() => { setCreating(false); setNewName('') }} className="px-3 py-1.5 rounded text-sm border hover:bg-muted">Cancel</button>
+            onKeyDown={e => { if (e.key === 'Enter') createNotebook(); if (e.key === 'Escape') resetCreate() }}
+            placeholder={createMode === 'import' ? 'Notebook name (optional — uses filter name if empty)' : 'Notebook name'}
+            className="w-full border rounded px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
+
+          {createMode === 'import' && (
+            <div>
+              {filtersLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 size={14} className="animate-spin" /> Loading filters…
+                </div>
+              ) : availableFilters.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">No available OpenRAG filters found.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Select a filter</p>
+                  {availableFilters.map(f => {
+                    const isSelected = selectedFilterId === f.id
+                    return (
+                      <button key={f.id} onClick={() => {
+                        setSelectedFilterId(f.id)
+                        if (!newName.trim()) setNewName(f.name)
+                      }}
+                        className={`w-full text-left px-3 py-2 rounded border text-sm transition-all ${
+                          isSelected
+                            ? 'border-primary bg-primary/10 shadow-sm ring-1 ring-primary/20'
+                            : 'border-border hover:bg-muted/40'
+                        }`}>
+                        <div className="flex items-center gap-2">
+                          <div className={`shrink-0 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+                            {isSelected ? <Check size={14} /> : <Database size={14} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium truncate ${isSelected ? 'text-primary' : ''}`}>{f.name}</p>
+                            {f.description && <p className="text-xs text-muted-foreground truncate">{f.description}</p>}
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0">{f.documentCount} doc{f.documentCount !== 1 ? 's' : ''}</span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <button onClick={createNotebook}
+                disabled={createMode === 'new' ? !newName.trim() : !selectedFilterId}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                  (createMode === 'new' && !newName.trim()) || (createMode === 'import' && !selectedFilterId)
+                    ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
+                }`}>
+                {createMode === 'import' ? 'Import' : 'Create'}
+              </button>
+              <button onClick={resetCreate} className="px-3 py-1.5 rounded text-sm border hover:bg-muted">Cancel</button>
+            </div>
+            {createMode === 'import' && (
+              <p className="text-xs text-muted-foreground">
+                {!selectedFilterId ? 'Select a filter above to import.' : `Importing as "${newName.trim() || 'filter name'}"`}
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -97,7 +195,7 @@ export default function HomePage() {
         <div className="text-center py-20 text-muted-foreground">
           <BookOpen size={40} className="mx-auto mb-3 opacity-30" />
           <p className="font-medium">No notebooks yet</p>
-          <p className="text-sm mt-1">Click "New notebook" to get started.</p>
+          <p className="text-sm mt-1">Click "New notebook" to create one or import from OpenRAG.</p>
         </div>
       ) : (
         <ul className="space-y-2">

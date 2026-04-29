@@ -2,13 +2,20 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Markdown from '@/components/Markdown'
-import { Send, BookmarkPlus, AlertCircle } from 'lucide-react'
+import { Send, BookmarkPlus, AlertCircle, FileText, Globe, AlignLeft, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import type { Source } from '@/lib/types'
+
+interface OpenRAGSource {
+  filename: string
+  text: string
+  score: number
+  page?: number | null
+}
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
-  sources?: { title: string; filename: string }[]
+  sources?: OpenRAGSource[]
   saved?: boolean
 }
 
@@ -17,6 +24,104 @@ interface Props {
   sources: Source[]
   selectedIds: Set<string>
   onNoteSaved: () => void
+}
+
+interface ParsedMetadata {
+  body: string
+  searchQuery: string | null
+  sourceFilenames: string[]
+}
+
+// Strip the trailing JSON metadata blob that OpenRAG appends to responses.
+// The JSON may contain nested objects (search_query, filter.terms.filename, etc.)
+function parseContent(raw: string): ParsedMetadata {
+  let end = raw.length - 1
+  while (end >= 0 && /\s/.test(raw[end])) end--
+  if (end < 0 || raw[end] !== '}') return { body: raw, searchQuery: null, sourceFilenames: [] }
+
+  let depth = 0
+  let start = end
+  for (; start >= 0; start--) {
+    if (raw[start] === '}') depth++
+    else if (raw[start] === '{') depth--
+    if (depth === 0) break
+  }
+
+  if (start < 0 || depth !== 0) return { body: raw, searchQuery: null, sourceFilenames: [] }
+
+  const jsonStr = raw.slice(start, end + 1)
+  try {
+    const data = JSON.parse(jsonStr)
+    let body = raw.slice(0, start).trim()
+    body = body.replace(/\s*\(Source:[^)]*\)\s*$/, '').trim()
+    const searchQuery = data.search_query ?? null
+    const sourceFilenames = data.filter?.terms?.filename ?? []
+    return { body, searchQuery, sourceFilenames }
+  } catch {
+    return { body: raw, searchQuery: null, sourceFilenames: [] }
+  }
+}
+
+function SourceList({ openragSources, appSources }: { openragSources: OpenRAGSource[]; appSources: Source[] }) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  // Deduplicate by filename, keeping highest-score chunk per file
+  const byFile = openragSources.reduce<Record<string, OpenRAGSource>>((acc, s) => {
+    if (!acc[s.filename] || s.score > acc[s.filename].score) acc[s.filename] = s
+    return acc
+  }, {})
+  const unique = Object.values(byFile)
+
+  return (
+    <div className="space-y-1 px-1">
+      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Sources</p>
+      {unique.map(s => {
+        const appSource = appSources.find(a => a.openragFilename === s.filename)
+        const title = appSource?.title ?? s.filename
+        const isUrl = appSource?.type === 'url'
+        const isPdf = appSource?.type === 'pdf'
+        const isOpen = expanded === s.filename
+
+        const Icon = isPdf ? FileText : isUrl ? Globe : AlignLeft
+
+        return (
+          <div key={s.filename} className="rounded-lg border bg-muted/30 overflow-hidden">
+            <div className="flex items-center gap-2 px-2.5 py-1.5">
+              <Icon size={12} className="shrink-0 text-muted-foreground" />
+              {isUrl && appSource?.url ? (
+                <a
+                  href={appSource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-xs font-medium truncate text-primary hover:underline"
+                  title={title}
+                >
+                  {title}
+                </a>
+              ) : (
+                <span className="flex-1 text-xs font-medium truncate" title={title}>{title}</span>
+              )}
+              {s.page != null && (
+                <span className="text-[10px] text-muted-foreground shrink-0">p.{s.page}</span>
+              )}
+              <button
+                onClick={() => setExpanded(isOpen ? null : s.filename)}
+                className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground"
+                title={isOpen ? 'Hide excerpt' : 'Show excerpt'}
+              >
+                {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </button>
+            </div>
+            {isOpen && (
+              <div className="px-2.5 pb-2.5 pt-0 border-t text-[11px] text-muted-foreground leading-relaxed bg-muted/10">
+                <p className="mt-1.5 whitespace-pre-wrap">{s.text}</p>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 export default function ChatPanel({ notebookId, sources, selectedIds, onNoteSaved }: Props) {
@@ -134,40 +239,63 @@ export default function ChatPanel({ notebookId, sources, selectedIds, onNoteSave
           </div>
         )}
 
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.role === 'user' ? (
-              <div className="max-w-[80%] bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm">
-                {msg.content}
-              </div>
-            ) : (
-              <div className="max-w-[85%] space-y-2">
-                <div className="bg-card border px-4 py-3 rounded-2xl rounded-tl-sm">
-                  {msg.content ? (
-                    <Markdown>{msg.content}</Markdown>
-                  ) : (
-                    <span className="inline-block w-2 h-4 bg-foreground/50 animate-pulse rounded" />
+        {messages.map((msg, idx) => {
+          const parsed = msg.role === 'assistant' ? parseContent(msg.content) : { body: msg.content, searchQuery: null, sourceFilenames: [] }
+          const { body, searchQuery, sourceFilenames } = parsed
+          return (
+            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {msg.role === 'user' ? (
+                <div className="max-w-[80%] bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm">
+                  {body}
+                </div>
+              ) : (
+                <div className="max-w-[85%] space-y-2">
+                  <div className="bg-card border px-4 py-3 rounded-2xl rounded-tl-sm">
+                    {body ? (
+                      <Markdown>{body}</Markdown>
+                    ) : (
+                      <span className="inline-block w-2 h-4 bg-foreground/50 animate-pulse rounded" />
+                    )}
+                  </div>
+                  {(searchQuery || sourceFilenames.length > 0) && (
+                    <div className="flex flex-wrap items-center gap-1.5 px-1">
+                      {searchQuery && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium">
+                          <Search size={10} />
+                          {searchQuery}
+                        </span>
+                      )}
+                      {sourceFilenames.map(fn => {
+                        const src = sources.find(s => s.openragFilename === fn)
+                        const title = src?.title ?? fn
+                        const isUrl = src?.type === 'url'
+                        const isPdf = src?.type === 'pdf'
+                        const Icon = isPdf ? FileText : isUrl ? Globe : AlignLeft
+                        return (
+                          <span key={fn} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border text-foreground text-[11px] font-medium">
+                            <Icon size={10} className="text-muted-foreground shrink-0" />
+                            <span className="truncate max-w-[150px]" title={title}>{title}</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {msg.sources && msg.sources.length > 0 && (
+                    <SourceList openragSources={msg.sources} appSources={sources} />
+                  )}
+                  {msg.content && !streaming && (
+                    <button onClick={() => saveAsNote(msg, messages[idx - 1]?.content ?? 'Chat response', idx)}
+                      disabled={msg.saved}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed px-1">
+                      <BookmarkPlus size={12} />
+                      {msg.saved ? 'Saved' : 'Save to note'}
+                    </button>
                   )}
                 </div>
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="flex flex-wrap gap-1 px-1">
-                    {msg.sources.map((s, i) => (
-                      <span key={i} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{s.title}</span>
-                    ))}
-                  </div>
-                )}
-                {msg.content && !streaming && (
-                  <button onClick={() => saveAsNote(msg, messages[idx - 1]?.content ?? 'Chat response', idx)}
-                    disabled={msg.saved}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed px-1">
-                    <BookmarkPlus size={12} />
-                    {msg.saved ? 'Saved' : 'Save to note'}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          )
+        })}
         <div ref={bottomRef} />
       </div>
 

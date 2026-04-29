@@ -2,6 +2,7 @@
 
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 
 const components: Components = {
   // Links open in new tab safely
@@ -80,7 +81,7 @@ interface Props {
 export default function Markdown({ children, className }: Props) {
   return (
     <div className={`text-sm text-foreground ${className ?? ''}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={components}>
         {children}
       </ReactMarkdown>
     </div>

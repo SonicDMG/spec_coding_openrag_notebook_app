@@ -1,5 +1,7 @@
+import { v4 as uuid } from 'uuid'
 import { openrag } from './openrag'
-import { getSources, getSource, updateNotebook } from './store'
+import { getSources, getSource, updateNotebook, createSource } from './store'
+import type { SourceType } from './types'
 
 export const QUERY_LIMIT = 10
 export const QUERY_SCORE_THRESHOLD = 0.3
@@ -77,6 +79,34 @@ export async function updateNotebookFilter(filterId: string, notebookId: string)
 
   filterUpdateLocks.set(notebookId, updatePromise)
   await updatePromise
+}
+
+export async function importNotebookFilterSources(notebookId: string, filterId: string): Promise<number> {
+  const filter = await openrag.knowledgeFilters.get(filterId)
+  if (!filter) throw new Error('Filter not found')
+
+  const filenames = filter.queryData?.filters?.data_sources ?? []
+  if (filenames.length === 0) return 0
+
+  const now = new Date().toISOString()
+  let count = 0
+
+  for (const filename of filenames) {
+    const type: SourceType = filename.toLowerCase().endsWith('.pdf') ? 'pdf' : 'text'
+    const title = filename.replace(/^notebook-[^-]+-/, '').replace(/\.(pdf|txt)$/i, '') || filename
+
+    createSource({
+      id: `src_${uuid()}`,
+      notebookId,
+      title,
+      type,
+      openragFilename: filename,
+      createdAt: now,
+    })
+    count++
+  }
+
+  return count
 }
 
 export async function deleteNotebookFilter(filterId: string): Promise<void> {
