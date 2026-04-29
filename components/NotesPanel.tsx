@@ -31,6 +31,8 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
   const [newTitle, setNewTitle] = useState('')
   const [newBody, setNewBody] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set())
   const [generateMode, setGenerateMode] = useState<GenerateMode>(null)
   const [generatePrompt, setGeneratePrompt] = useState('')
   const [generating, setGenerating] = useState(false)
@@ -103,6 +105,31 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
     await fetch(`/api/notebooks/${notebookId}/notes/${id}`, { method: 'DELETE' })
     setDeletingId(null)
     if (openNote?.id === id) closeNote()
+    onNotesChanged()
+  }
+
+  function toggleSelectMode() {
+    setSelectMode(s => !s)
+    setSelectedNoteIds(new Set())
+  }
+
+  function toggleNoteSelection(id: string) {
+    setSelectedNoteIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function deleteSelected() {
+    await Promise.all(
+      Array.from(selectedNoteIds).map(id =>
+        fetch(`/api/notebooks/${notebookId}/notes/${id}`, { method: 'DELETE' })
+      )
+    )
+    setSelectedNoteIds(new Set())
+    setSelectMode(false)
     onNotesChanged()
   }
 
@@ -325,13 +352,34 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
       <div className="p-3 border-b space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notes</span>
-          <button onClick={() => setCreating(true)} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-2 py-1 rounded hover:bg-primary/90">
-            <Plus size={12} /> New
-          </button>
+          {selectMode ? (
+            <div className="flex items-center gap-2">
+              <button onClick={() => setSelectedNoteIds(new Set(notes.map(n => n.id)))}
+                className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-1 rounded hover:bg-muted">
+                All
+              </button>
+              <button onClick={toggleSelectMode}
+                className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-1 rounded hover:bg-muted">
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              {notes.length > 0 && (
+                <button onClick={toggleSelectMode}
+                  className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-1 rounded hover:bg-muted">
+                  Select
+                </button>
+              )}
+              <button onClick={() => setCreating(true)} className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-2 py-1 rounded hover:bg-primary/90">
+                <Plus size={12} /> New
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Generate buttons */}
-        {!noSources && (
+        {/* Generate buttons — hidden in select mode */}
+        {!noSources && !selectMode && (
           <div className="flex flex-wrap gap-1">
             <button onClick={() => setGenerateMode('overview')} disabled={noneSelected || generating}
               className="flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-muted disabled:opacity-40">
@@ -348,6 +396,17 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
           </div>
         )}
       </div>
+
+      {/* Bulk delete bar */}
+      {selectMode && selectedNoteIds.size > 0 && (
+        <div className="px-3 py-2 border-b bg-destructive/10 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">{selectedNoteIds.size} selected</span>
+          <button onClick={deleteSelected}
+            className="flex items-center gap-1 text-xs text-destructive font-medium hover:underline">
+            <Trash2 size={12} /> Delete
+          </button>
+        </div>
+      )}
 
       {/* Generate form */}
       {generateMode && (
@@ -369,8 +428,8 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
         </div>
       )}
 
-      {/* New note form */}
-      {creating && (
+      {/* New note form — hidden in select mode */}
+      {creating && !selectMode && (
         <div className="p-3 border-b bg-muted/30 space-y-2 text-sm">
           <input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Title (optional)"
             className="w-full border rounded px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring" />
@@ -393,8 +452,23 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
         ) : (
           <ul className="divide-y">
             {notes.map(n => (
-              <li key={n.id} className="px-3 py-2.5 hover:bg-muted/40 cursor-pointer group" onClick={() => { setOpenNote(n); requestAnimationFrame(() => setNoteExpanded(true)) }}>
-                <div className="flex items-start justify-between gap-2">
+              <li
+                key={n.id}
+                className={`px-3 py-2.5 hover:bg-muted/40 cursor-pointer group flex items-center gap-2 ${selectMode && selectedNoteIds.has(n.id) ? 'bg-muted/60' : ''}`}
+                onClick={selectMode
+                  ? () => toggleNoteSelection(n.id)
+                  : () => { setOpenNote(n); requestAnimationFrame(() => setNoteExpanded(true)) }}
+              >
+                {selectMode && (
+                  <input
+                    type="checkbox"
+                    checked={selectedNoteIds.has(n.id)}
+                    onChange={() => toggleNoteSelection(n.id)}
+                    onClick={e => e.stopPropagation()}
+                    className="shrink-0 accent-primary"
+                  />
+                )}
+                <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate">{n.title}</p>
                     <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{preview(n)}</p>
