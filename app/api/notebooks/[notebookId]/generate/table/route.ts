@@ -8,6 +8,8 @@ import type { TableData } from '@/lib/types'
 
 type Ctx = { params: Promise<{ notebookId: string }> }
 
+export const maxDuration = 300
+
 function buildPrompt(focus?: string) {
   const focusLine = focus ? `Focus specifically on: ${focus}.` : 'Identify the most meaningful columns from the content.'
   return `You are a data extraction assistant. ${focusLine}

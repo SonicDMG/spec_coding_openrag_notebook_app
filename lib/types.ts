@@ -1,5 +1,5 @@
 export type NoteType = 'manual' | 'chat' | 'overview' | 'table' | 'mindmap'
-export type SourceType = 'text' | 'pdf' | 'url'
+export type SourceType = 'text' | 'pdf' | 'url' | 'csv' | 'md' | 'html' | 'docx' | 'txt' | 'md'
 
 export interface Notebook {
   id: string

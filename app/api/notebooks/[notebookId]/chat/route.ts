@@ -5,6 +5,8 @@ import { err, mapSdkError } from '@/lib/errors'
 
 type Ctx = { params: Promise<{ notebookId: string }> }
 
+export const maxDuration = 300
+
 export async function POST(req: Request, { params }: Ctx) {
   const { notebookId } = await params
   const notebook = getNotebook(notebookId)

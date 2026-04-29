@@ -5,10 +5,38 @@ import { getNotebook, createSource, sourceExistsByFilename, sourceExistsByConten
 import { openrag } from '@/lib/openrag'
 import { updateNotebookFilter } from '@/lib/filters'
 import { err, mapSdkError } from '@/lib/errors'
+import type { SourceType } from '@/lib/types'
 
 type Ctx = { params: Promise<{ notebookId: string }> }
 
-// Increase timeout for large PDF uploads
+const ALLOWED_EXTS = ['.pdf', '.csv', '.md', '.html', '.docx', '.txt']
+const MIME_TYPES: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.csv': 'text/csv',
+  '.md': 'text/markdown',
+  '.html': 'text/html',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.txt': 'text/plain',
+}
+
+function extFromName(name: string): string | null {
+  const lower = name.toLowerCase()
+  return ALLOWED_EXTS.find(e => lower.endsWith(e)) ?? null
+}
+
+function sourceTypeFromExt(ext: string): SourceType {
+  const map: Record<string, SourceType> = {
+    '.pdf': 'pdf',
+    '.csv': 'csv',
+    '.md': 'md',
+    '.html': 'html',
+    '.docx': 'docx',
+    '.txt': 'txt',
+  }
+  return map[ext] ?? 'txt'
+}
+
+// Increase timeout for large file uploads
 export const maxDuration = 300 // 5 minutes
 
 export async function POST(req: Request, { params }: Ctx) {
@@ -19,58 +47,53 @@ export async function POST(req: Request, { params }: Ctx) {
   const formData = await req.formData().catch(() => null)
   const file = formData?.get('file') as File | null
   if (!file) return err(400, 'file is required.', 'VALIDATION_ERROR')
-  if (file.type !== 'application/pdf') return err(400, 'Only PDF files are accepted.', 'VALIDATION_ERROR')
 
-  const baseName = file.name.replace(/\.pdf$/i, '')
+  const ext = extFromName(file.name)
+  if (!ext) return err(400, `Only ${ALLOWED_EXTS.join(', ')} files are accepted.`, 'VALIDATION_ERROR')
+
+  const baseName = file.name.replace(new RegExp(`\\${ext}$`, 'i'), '')
   const title = (formData?.get('title') as string | null)?.trim() || baseName
 
   try {
-    // Read file content and calculate hash
     const buffer = await file.arrayBuffer()
     const contentHash = createHash('sha256').update(Buffer.from(buffer)).digest('hex')
-    
-    // Check if this exact content already exists in the notebook
+
     const existingSource = sourceExistsByContentHash(notebookId, contentHash)
     if (existingSource) {
       return NextResponse.json(existingSource, { status: 200 })
     }
 
     const sourceId = `src_${uuid()}`
-    const openragFilename = `${notebookId}-${sourceId}.pdf`
+    const openragFilename = `${notebookId}-${sourceId}${ext}`
 
-    // Check filename collision (shouldn't happen with UUID but be safe)
     if (sourceExistsByFilename(notebookId, openragFilename)) {
       return err(409, 'A source with this filename already exists in the notebook.', 'DUPLICATE_SOURCE')
     }
 
-    const blob = new Blob([buffer], { type: 'application/pdf' })
-    
-    // Ingest document to OpenRAG
+    const blob = new Blob([buffer], { type: MIME_TYPES[ext] ?? 'application/octet-stream' })
+
     const result = await openrag.documents.ingest({ file: blob, filename: openragFilename })
-    
-    // Wait for ingestion to complete with timeout handling
+
     try {
       await openrag.documents.waitForTask(result.task_id)
     } catch (waitError) {
-      // If wait fails, document might still be processing
       console.error('Task wait error:', waitError)
-      // Continue anyway - document is queued in OpenRAG
     }
 
-    const source = createSource({ 
-      id: sourceId, 
-      notebookId, 
-      title, 
-      type: 'pdf', 
+    const source = createSource({
+      id: sourceId,
+      notebookId,
+      title,
+      type: sourceTypeFromExt(ext),
       openragFilename,
       contentHash,
-      createdAt: new Date().toISOString() 
+      createdAt: new Date().toISOString(),
     })
-    
+
     await updateNotebookFilter(notebook.openragFilterId, notebookId)
     return NextResponse.json(source, { status: 201 })
   } catch (e) {
-    console.error('PDF upload error:', e)
+    console.error('File upload error:', e)
     return mapSdkError(e)
   }
 }

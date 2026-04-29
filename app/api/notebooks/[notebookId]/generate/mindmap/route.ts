@@ -8,6 +8,8 @@ import type { MindMapData } from '@/lib/types'
 
 type Ctx = { params: Promise<{ notebookId: string }> }
 
+export const maxDuration = 300
+
 function buildPrompt(topic?: string) {
   const topicLine = topic ? `Focus on the topic: ${topic}.` : 'Use the central concept from the content.'
   return `You are a knowledge mapping assistant. ${topicLine}

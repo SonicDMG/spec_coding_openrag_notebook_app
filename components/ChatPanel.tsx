@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Markdown from '@/components/Markdown'
-import { Send, BookmarkPlus, AlertCircle, FileText, Globe, AlignLeft, ChevronDown, ChevronUp, Search } from 'lucide-react'
+import { Send, BookmarkPlus, AlertCircle, FileText, Globe, AlignLeft, Table, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import type { Source } from '@/lib/types'
 
 interface OpenRAGSource {
@@ -80,9 +80,10 @@ function SourceList({ openragSources, appSources }: { openragSources: OpenRAGSou
         const title = appSource?.title ?? s.filename
         const isUrl = appSource?.type === 'url'
         const isPdf = appSource?.type === 'pdf'
+        const isCsv = appSource?.type === 'csv'
         const isOpen = expanded === s.filename
 
-        const Icon = isPdf ? FileText : isUrl ? Globe : AlignLeft
+        const Icon = isPdf ? FileText : isUrl ? Globe : isCsv ? Table : AlignLeft
 
         return (
           <div key={s.filename} className="rounded-lg border bg-muted/30 overflow-hidden">
@@ -270,7 +271,8 @@ export default function ChatPanel({ notebookId, sources, selectedIds, onNoteSave
                         const title = src?.title ?? fn
                         const isUrl = src?.type === 'url'
                         const isPdf = src?.type === 'pdf'
-                        const Icon = isPdf ? FileText : isUrl ? Globe : AlignLeft
+                        const isCsv = src?.type === 'csv'
+                        const Icon = isPdf ? FileText : isUrl ? Globe : isCsv ? Table : AlignLeft
                         return (
                           <span key={fn} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border text-foreground text-[11px] font-medium">
                             <Icon size={10} className="text-muted-foreground shrink-0" />

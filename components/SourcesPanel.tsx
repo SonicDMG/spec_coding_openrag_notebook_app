@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
-import { FileText, Globe, AlignLeft, Trash2, Plus, X, Search, CheckSquare, Square, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { FileText, Globe, AlignLeft, Table, Trash2, Plus, X, Search, CheckSquare, Square, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Source } from '@/lib/types'
 import { showError } from './ErrorToast'
 
@@ -16,6 +16,7 @@ type UploadTask = {
 function SourceIcon({ type }: { type: Source['type'] }) {
   if (type === 'pdf') return <FileText size={14} className="shrink-0 text-muted-foreground" />
   if (type === 'url') return <Globe size={14} className="shrink-0 text-muted-foreground" />
+  if (type === 'csv') return <Table size={14} className="shrink-0 text-muted-foreground" />
   return <AlignLeft size={14} className="shrink-0 text-muted-foreground" />
 }
 
@@ -204,8 +205,8 @@ export function SourcesPanel({
               onClick={() => fileInputRef.current?.click()}
             >
               <FileText size={20} className="mx-auto mb-1 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Click to select PDFs</p>
-              <input ref={fileInputRef} type="file" multiple accept=".pdf" className="hidden"
+              <p className="text-xs text-muted-foreground">Click to select PDF, CSV, MD, HTML, DOCX, or TXT</p>
+              <input ref={fileInputRef} type="file" multiple accept=".pdf,.csv,.md,.html,.docx,.txt" className="hidden"
                 onChange={e => handleFileSelect(e.target.files)} />
             </div>
           )}

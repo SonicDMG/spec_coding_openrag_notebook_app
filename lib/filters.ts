@@ -92,8 +92,15 @@ export async function importNotebookFilterSources(notebookId: string, filterId: 
   let count = 0
 
   for (const filename of filenames) {
-    const type: SourceType = filename.toLowerCase().endsWith('.pdf') ? 'pdf' : 'text'
-    const title = filename.replace(/^notebook-[^-]+-/, '').replace(/\.(pdf|txt)$/i, '') || filename
+    const lower = filename.toLowerCase()
+    let type: SourceType = 'txt'
+    if (lower.endsWith('.pdf')) type = 'pdf'
+    else if (lower.endsWith('.csv')) type = 'csv'
+    else if (lower.endsWith('.md')) type = 'md'
+    else if (lower.endsWith('.html')) type = 'html'
+    else if (lower.endsWith('.docx')) type = 'docx'
+
+    const title = filename.replace(/^notebook-[^-]+-/, '').replace(/\.(pdf|txt|csv|md|html|docx)$/i, '') || filename
 
     createSource({
       id: `src_${uuid()}`,

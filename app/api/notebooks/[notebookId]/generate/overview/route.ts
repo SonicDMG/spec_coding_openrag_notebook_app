@@ -7,6 +7,8 @@ import { err, mapSdkError } from '@/lib/errors'
 
 type Ctx = { params: Promise<{ notebookId: string }> }
 
+export const maxDuration = 300
+
 const PROMPT = `You are a research assistant. Summarise the provided documents into a structured overview.
 Use clear headings and bullet points. Cover the main topics, key arguments, and important details.
 Do NOT output JSON — write plain prose with markdown formatting.`
