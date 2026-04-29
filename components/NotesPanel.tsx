@@ -151,7 +151,6 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-      let thinkingContent = ''
       let hasThinkingMsg = false
 
       while (true) {
@@ -172,16 +171,12 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
           if (eventType === 'status') {
             // Add initial thinking message (only once)
             if (!hasThinkingMsg) {
-              thinkingContent = data.message
-              addMessage({ id: thinkingMsgId, role: 'assistant', content: thinkingContent })
+              addMessage({ id: thinkingMsgId, role: 'assistant', content: data.message })
               hasThinkingMsg = true
             }
           } else if (eventType === 'content') {
-            // Update the thinking message with streaming content
-            if (hasThinkingMsg) {
-              thinkingContent += data.delta
-              updateMessage(thinkingMsgId, { content: thinkingContent })
-            }
+            // Skip content events - we don't want to show raw JSON in the chat
+            // The actual content is saved as a note, not displayed in chat
           } else if (eventType === 'sources') {
             // Attach sources to the thinking message
             if (hasThinkingMsg) {
@@ -208,7 +203,8 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
 
             // Update the thinking message with completion and suggestions
             if (hasThinkingMsg) {
-              updateMessage(thinkingMsgId, { content: thinkingContent + '\n\n' + completionMsg, suggestions })
+              const statusMsg = `I have started creating a ${typeLabel} for you.\n\nThis will analyze your selected sources and extract key information.\n\nYou can find it in the Notes panel once it finishes generating.`
+              updateMessage(thinkingMsgId, { content: statusMsg + '\n\n' + completionMsg, suggestions })
             }
 
             setGenerateMode(null)
@@ -217,7 +213,7 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
           } else if (eventType === 'error') {
             setError(data.error)
             if (hasThinkingMsg) {
-              updateMessage(thinkingMsgId, { content: thinkingContent + '\n\n❌ Generation failed: ' + data.error })
+              updateMessage(thinkingMsgId, { content: `❌ Generation failed: ${data.error}` })
             } else {
               addMessage({ role: 'assistant', content: `Generation failed: ${data.error}` })
             }
