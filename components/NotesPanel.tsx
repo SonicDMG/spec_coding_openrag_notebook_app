@@ -193,11 +193,12 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, on
           {noteDetailContent()}
         </div>
 
-        {/* Full-screen overlay with slide-in animation */}
+        {/* Full-screen overlay — slides in from the Notes panel's left edge */}
         <div
           className={`fixed inset-0 z-50 bg-card flex flex-col transition-transform duration-300 ease-in-out ${
-            noteExpanded ? 'translate-x-0' : 'translate-x-full'
+            noteExpanded ? '' : 'pointer-events-none'
           }`}
+          style={{ transform: noteExpanded ? 'translateX(0)' : 'translateX(calc(100vw - 320px))' }}
           aria-hidden={!noteExpanded}
         >
           {noteDetailContent()}
