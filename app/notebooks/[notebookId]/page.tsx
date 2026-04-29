@@ -251,8 +251,8 @@ export default function NotebookPage() {
                 selectedIds={selectedIds}
                 addMessage={addMessage}
                 updateMessage={updateMessage}
-                pendingGeneration={pendingGeneration}
-                onPendingGenerationDone={() => setPendingGeneration(null)}
+                pendingGeneration={null}
+                onPendingGenerationDone={undefined}
                 onNotesChanged={load}
               />
             </div>
