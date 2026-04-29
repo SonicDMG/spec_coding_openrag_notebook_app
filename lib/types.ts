@@ -56,3 +56,26 @@ export interface ApiError {
   error: string
   code?: string
 }
+
+export interface OpenRAGSource {
+  filename: string
+  text: string
+  score: number
+  page?: number | null
+}
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  sources?: OpenRAGSource[]
+  saved?: boolean
+  suggestions?: ChatSuggestion[]
+}
+
+export interface ChatSuggestion {
+  label: string
+  action: 'generate' | 'chat'
+  mode?: 'overview' | 'table' | 'mindmap'
+  prompt?: string
+}

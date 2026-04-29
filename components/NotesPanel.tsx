@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import Markdown from '@/components/Markdown'
 import { Plus, Trash2, Pencil, X, Check, Sparkles, ChevronLeft, Table2, Network, Minimize2 } from 'lucide-react'
-import type { Note, Source } from '@/lib/types'
+import type { Note, Source, ChatMessage, ChatSuggestion } from '@/lib/types'
 
 const MindMapRenderer = lazy(() => import('./MindMapRenderer'))
 
@@ -12,12 +12,16 @@ interface Props {
   notes: Note[]
   sources: Source[]
   selectedIds: Set<string>
+  addMessage: (msg: Partial<ChatMessage> & { role: 'user' | 'assistant' }) => void
+  updateMessage: (id: string, updates: Partial<ChatMessage>) => void
+  pendingGeneration?: { mode: 'overview' | 'table' | 'mindmap'; prompt?: string } | null
+  onPendingGenerationDone?: () => void
   onNotesChanged: () => void
 }
 
 type GenerateMode = null | 'overview' | 'table' | 'mindmap'
 
-export default function NotesPanel({ notebookId, notes, sources, selectedIds, onNotesChanged }: Props) {
+export default function NotesPanel({ notebookId, notes, sources, selectedIds, addMessage, updateMessage, pendingGeneration, onPendingGenerationDone, onNotesChanged }: Props) {
   const [openNote, setOpenNote] = useState<Note | null>(null)
   const [noteExpanded, setNoteExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -31,6 +35,7 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, on
   const [generatePrompt, setGeneratePrompt] = useState('')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const generatingRef = useRef(false)
 
   const noneSelected = selectedIds.size === 0
   const noSources = sources.length === 0
@@ -48,6 +53,19 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, on
   useEffect(() => {
     if (!openNote) setNoteExpanded(false)
   }, [openNote])
+
+  // Handle pending generation from ChatPanel suggestions
+  useEffect(() => {
+    if (pendingGeneration && !generatingRef.current) {
+      setGenerateMode(pendingGeneration.mode)
+      setGeneratePrompt(pendingGeneration.prompt || '')
+      // Auto-trigger the generation
+      setTimeout(() => {
+        generate(pendingGeneration.mode, pendingGeneration.prompt)
+      }, 100)
+      onPendingGenerationDone?.()
+    }
+  }, [pendingGeneration])
 
   function closeNote() {
     if (noteExpanded) {
@@ -100,21 +118,119 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, on
     else { const d = await res.json(); setError(d.error) }
   }
 
-  async function generate(mode: GenerateMode) {
+  async function generate(mode: GenerateMode, overridePrompt?: string) {
     if (!mode) return
+    if (generatingRef.current) return
+    generatingRef.current = true
     setGenerating(true); setError(null)
+
     const endpoint = mode === 'overview' ? 'overview' : mode === 'table' ? 'table' : 'mindmap'
-    const extra = mode === 'table' ? { prompt: generatePrompt } : mode === 'mindmap' ? { topic: generatePrompt } : {}
+    const prompt = overridePrompt ?? generatePrompt
+    const extra = mode === 'table' ? { prompt } : mode === 'mindmap' ? { topic: prompt } : {}
+
+    // Generate message IDs upfront so we can update them
+    const thinkingMsgId = `msg_${Date.now()}_thinking`
+    const completionMsgId = `msg_${Date.now() + 1}_completion`
+
     try {
       const res = await fetch(`/api/notebooks/${notebookId}/generate/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selectedSourceIds: Array.from(selectedIds), ...extra }),
       })
-      if (res.ok) { setGenerateMode(null); setGeneratePrompt(''); onNotesChanged() }
-      else { const d = await res.json(); setError(d.error) }
-    } catch { setError('Generation failed.') }
-    finally { setGenerating(false) }
+
+      if (!res.ok) {
+        const d = await res.json()
+        setError(d.error)
+        generatingRef.current = false
+        setGenerating(false)
+        return
+      }
+
+      // Stream the response
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let thinkingContent = ''
+      let hasThinkingMsg = false
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+
+        for (const part of parts) {
+          const lines = part.split('\n')
+          const eventLine = lines.find(l => l.startsWith('event:'))
+          const dataLine = lines.find(l => l.startsWith('data:'))
+          if (!eventLine || !dataLine) continue
+          const eventType = eventLine.slice(7).trim()
+          const data = JSON.parse(dataLine.slice(5).trim())
+
+          if (eventType === 'status') {
+            // Add initial thinking message (only once)
+            if (!hasThinkingMsg) {
+              thinkingContent = data.message
+              addMessage({ id: thinkingMsgId, role: 'assistant', content: thinkingContent })
+              hasThinkingMsg = true
+            }
+          } else if (eventType === 'content') {
+            // Update the thinking message with streaming content
+            if (hasThinkingMsg) {
+              thinkingContent += data.delta
+              updateMessage(thinkingMsgId, { content: thinkingContent })
+            }
+          } else if (eventType === 'sources') {
+            // Attach sources to the thinking message
+            if (hasThinkingMsg) {
+              updateMessage(thinkingMsgId, { sources: data.sources })
+            }
+          } else if (eventType === 'done') {
+            // Generation complete - update with completion message and suggestions
+            const note = data.note
+            const typeLabel = note.type === 'mindmap' ? 'mind map' : note.type === 'table' ? 'data table' : 'overview'
+            const completionMsg = `I've finished creating the ${typeLabel} "${note.title}". You can find it in the Notes panel.`
+
+            // Build suggestions for follow-up
+            const suggestions: ChatSuggestion[] = []
+            if (note.type === 'overview') {
+              suggestions.push({ label: 'Create a table', action: 'generate', mode: 'table' })
+              suggestions.push({ label: 'Create a mind map', action: 'generate', mode: 'mindmap' })
+            } else if (note.type === 'table') {
+              suggestions.push({ label: 'Create an overview', action: 'generate', mode: 'overview' })
+              suggestions.push({ label: 'Create a mind map', action: 'generate', mode: 'mindmap' })
+            } else if (note.type === 'mindmap') {
+              suggestions.push({ label: 'Create an overview', action: 'generate', mode: 'overview' })
+              suggestions.push({ label: 'Create a table', action: 'generate', mode: 'table' })
+            }
+
+            // Update the thinking message with completion and suggestions
+            if (hasThinkingMsg) {
+              updateMessage(thinkingMsgId, { content: thinkingContent + '\n\n' + completionMsg, suggestions })
+            }
+
+            setGenerateMode(null)
+            setGeneratePrompt('')
+            onNotesChanged()
+          } else if (eventType === 'error') {
+            setError(data.error)
+            if (hasThinkingMsg) {
+              updateMessage(thinkingMsgId, { content: thinkingContent + '\n\n❌ Generation failed: ' + data.error })
+            } else {
+              addMessage({ role: 'assistant', content: `Generation failed: ${data.error}` })
+            }
+          }
+        }
+      }
+    } catch {
+      setError('Generation failed.')
+      addMessage({ role: 'assistant', content: 'Generation failed. Please try again.' })
+    } finally {
+      generatingRef.current = false
+      setGenerating(false)
+    }
   }
 
   // ── Note detail content (shared between panel and overlay) ─────────────────

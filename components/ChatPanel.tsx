@@ -2,28 +2,19 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Markdown from '@/components/Markdown'
-import { Send, BookmarkPlus, AlertCircle, FileText, Globe, AlignLeft, Table, ChevronDown, ChevronUp, Search } from 'lucide-react'
-import type { Source } from '@/lib/types'
-
-interface OpenRAGSource {
-  filename: string
-  text: string
-  score: number
-  page?: number | null
-}
-
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  sources?: OpenRAGSource[]
-  saved?: boolean
-}
+import { Send, BookmarkPlus, AlertCircle, FileText, Globe, AlignLeft, Table, ChevronDown, ChevronUp, Search, Sparkles, Network } from 'lucide-react'
+import type { Source, ChatMessage, OpenRAGSource } from '@/lib/types'
 
 interface Props {
   notebookId: string
   sources: Source[]
   selectedIds: Set<string>
+  messages: ChatMessage[]
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
+  addMessage: (msg: Partial<ChatMessage> & { role: 'user' | 'assistant' }) => void
+  updateMessage: (id: string, updates: Partial<ChatMessage>) => void
   onNoteSaved: () => void
+  onSuggestionClick?: (suggestion: { action: string; mode?: string; prompt?: string }) => void
 }
 
 interface ParsedMetadata {
@@ -125,8 +116,7 @@ function SourceList({ openragSources, appSources }: { openragSources: OpenRAGSou
   )
 }
 
-export default function ChatPanel({ notebookId, sources, selectedIds, onNoteSaved }: Props) {
-  const [messages, setMessages] = useState<Message[]>([])
+export default function ChatPanel({ notebookId, sources, selectedIds, messages, setMessages, addMessage, updateMessage, onNoteSaved, onSuggestionClick }: Props) {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [chatId, setChatId] = useState<string | undefined>()
@@ -146,8 +136,10 @@ export default function ChatPanel({ notebookId, sources, selectedIds, onNoteSave
     setInput('')
     setError(null)
 
-    const userMsg: Message = { role: 'user', content: msg }
-    const assistantMsg: Message = { role: 'assistant', content: '' }
+    const userId = `msg_${Date.now()}_user`
+    const assistantId = `msg_${Date.now()}_assistant`
+    const userMsg: ChatMessage = { id: userId, role: 'user', content: msg }
+    const assistantMsg: ChatMessage = { id: assistantId, role: 'assistant', content: '' }
     setMessages(prev => [...prev, userMsg, assistantMsg])
     setStreaming(true)
 
@@ -211,7 +203,7 @@ export default function ChatPanel({ notebookId, sources, selectedIds, onNoteSave
     }
   }
 
-  async function saveAsNote(msg: Message, question: string, idx: number) {
+  async function saveAsNote(msg: ChatMessage, question: string, idx: number) {
     const title = question.slice(0, 60)
     const res = await fetch(`/api/notebooks/${notebookId}/notes`, {
       method: 'POST',
@@ -244,7 +236,7 @@ export default function ChatPanel({ notebookId, sources, selectedIds, onNoteSave
           const parsed = msg.role === 'assistant' ? parseContent(msg.content) : { body: msg.content, searchQuery: null, sourceFilenames: [] }
           const { body, searchQuery, sourceFilenames } = parsed
           return (
-            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'user' ? (
                 <div className="max-w-[80%] bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm">
                   {body}
@@ -292,6 +284,23 @@ export default function ChatPanel({ notebookId, sources, selectedIds, onNoteSave
                       <BookmarkPlus size={12} />
                       {msg.saved ? 'Saved' : 'Save to note'}
                     </button>
+                  )}
+                  {msg.suggestions && msg.suggestions.length > 0 && !streaming && (
+                    <div className="flex flex-wrap gap-1.5 px-1 mt-2">
+                      {msg.suggestions.map((s, i) => {
+                        const Icon = s.mode === 'table' ? Table : s.mode === 'mindmap' ? Network : Sparkles
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => onSuggestionClick?.({ action: s.action, mode: s.mode, prompt: s.prompt })}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+                          >
+                            <Icon size={11} />
+                            {s.label}
+                          </button>
+                        )
+                      })}
+                    </div>
                   )}
                 </div>
               )}

@@ -6,9 +6,14 @@ import { ArrowLeft, Menu, X } from 'lucide-react'
 import { SourcesPanel } from '@/components/SourcesPanel'
 import ChatPanel from '@/components/ChatPanel'
 import NotesPanel from '@/components/NotesPanel'
-import type { Notebook, Source, Note } from '@/lib/types'
+import type { Notebook, Source, Note, ChatMessage } from '@/lib/types'
 
 type Panel = 'sources' | 'chat' | 'notes'
+
+interface PendingGeneration {
+  mode: 'overview' | 'table' | 'mindmap'
+  prompt?: string
+}
 
 export default function NotebookPage() {
   const router = useRouter()
@@ -19,6 +24,8 @@ export default function NotebookPage() {
   const [sources, setSources] = useState<Source[]>([])
   const [notes, setNotes] = useState<Note[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [pendingGeneration, setPendingGeneration] = useState<PendingGeneration | null>(null)
   const [activePanel, setActivePanel] = useState<Panel>('chat')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -73,6 +80,26 @@ export default function NotebookPage() {
       else next.add(id)
       return next
     })
+  }
+
+  function addMessage(msg: Partial<ChatMessage> & { role: 'user' | 'assistant' }) {
+    const id = msg.id ?? `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    setMessages(prev => {
+      // Prevent duplicate messages
+      if (prev.some(m => m.id === id)) return prev
+      return [...prev, { id, role: msg.role, content: msg.content ?? '', sources: msg.sources, suggestions: msg.suggestions }]
+    })
+  }
+
+  function updateMessage(id: string, updates: Partial<ChatMessage>) {
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m))
+  }
+
+  function handleSuggestionClick(suggestion: { action: string; mode?: string; prompt?: string }) {
+    if (suggestion.action === 'generate' && suggestion.mode) {
+      setPendingGeneration({ mode: suggestion.mode as 'overview' | 'table' | 'mindmap', prompt: suggestion.prompt })
+      setActivePanel('notes')
+    }
   }
 
   if (loading) {
@@ -163,7 +190,12 @@ export default function NotebookPage() {
               notebookId={notebookId}
               sources={sources}
               selectedIds={selectedIds}
+              messages={messages}
+              setMessages={setMessages}
+              addMessage={addMessage}
+              updateMessage={updateMessage}
               onNoteSaved={load}
+              onSuggestionClick={handleSuggestionClick}
             />
           </div>
           <div className="border-l bg-card overflow-hidden">
@@ -172,6 +204,10 @@ export default function NotebookPage() {
               notes={notes}
               sources={sources}
               selectedIds={selectedIds}
+              addMessage={addMessage}
+              updateMessage={updateMessage}
+              pendingGeneration={pendingGeneration}
+              onPendingGenerationDone={() => setPendingGeneration(null)}
               onNotesChanged={load}
             />
           </div>
@@ -197,7 +233,12 @@ export default function NotebookPage() {
                 notebookId={notebookId}
                 sources={sources}
                 selectedIds={selectedIds}
+                messages={messages}
+                setMessages={setMessages}
+                addMessage={addMessage}
+                updateMessage={updateMessage}
                 onNoteSaved={load}
+                onSuggestionClick={handleSuggestionClick}
               />
             </div>
           )}
@@ -208,6 +249,10 @@ export default function NotebookPage() {
                 notes={notes}
                 sources={sources}
                 selectedIds={selectedIds}
+                addMessage={addMessage}
+                updateMessage={updateMessage}
+                pendingGeneration={pendingGeneration}
+                onPendingGenerationDone={() => setPendingGeneration(null)}
                 onNotesChanged={load}
               />
             </div>

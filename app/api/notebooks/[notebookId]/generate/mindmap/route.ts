@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server'
 import { v4 as uuid } from 'uuid'
 import { getNotebook, createNote } from '@/lib/store'
 import { openrag } from '@/lib/openrag'
@@ -16,6 +15,29 @@ function buildPrompt(topic?: string) {
 Identify key concepts and their relationships in the provided documents.
 Return ONLY valid JSON in this exact format — no prose, no markdown fences:
 {"nodes":[{"id":"n1","label":"Concept"}],"edges":[{"from":"n1","to":"n2","label":"relates to"}]}`
+}
+
+// Extract the JSON object containing nodes and edges from the response.
+// OpenRAG may append a metadata blob like {"search_query": "..."} at the end.
+function extractMindMapJson(content: string): MindMapData | null {
+  // Find the JSON object that contains "nodes" and "edges"
+  const nodesMatch = content.match(/\{"nodes":\s*\[[\s\S]*?\]/)
+  const edgesMatch = content.match(/"edges":\s*\[[\s\S]*?\]\s*\}/)
+
+  if (!nodesMatch || !edgesMatch) return null
+
+  // Reconstruct the full JSON object
+  const nodesStart = nodesMatch.index!
+  const edgesEnd = edgesMatch.index! + edgesMatch[0]!.length
+
+  try {
+    const jsonStr = content.slice(nodesStart, edgesEnd)
+    const data = JSON.parse(jsonStr)
+    if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) return null
+    return data
+  } catch {
+    return null
+  }
 }
 
 export async function POST(req: Request, { params }: Ctx) {
@@ -37,29 +59,66 @@ export async function POST(req: Request, { params }: Ctx) {
       filters: { data_sources: filenames },
       limit: QUERY_LIMIT,
       scoreThreshold: QUERY_SCORE_THRESHOLD,
-      stream: false as const,
+      stream: true as const,
     }
     console.log('[OpenRAG Debug] mindmap chat.create:', JSON.stringify(chatParams))
 
-    const response = await openrag.chat.create(chatParams)
+    const stream = await openrag.chat.create(chatParams)
+    let fullContent = ''
 
-    let mindMapData: MindMapData
-    try {
-      mindMapData = JSON.parse(response.response)
-      if (!Array.isArray(mindMapData.nodes) || !Array.isArray(mindMapData.edges)) throw new Error()
-    } catch {
-      return err(422, 'Could not extract concept map from the selected sources.', 'UNPROCESSABLE')
-    }
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          const topicDesc = topic ? ` about "${topic}"` : ''
+          const statusMsg = `I have started creating a mind map${topicDesc} for you.\n\nThis will identify key concepts and their relationships from your selected sources, organizing them into a visual diagram.\n\nYou can find it in the Notes panel once it finishes generating.`
+          controller.enqueue(encoder.encode(`event: status\ndata: ${JSON.stringify({ message: statusMsg })}\n\n`))
 
-    if (mindMapData.nodes.length < 2) {
-      return err(422, 'Fewer than two distinct concepts were identified in the selected sources.', 'UNPROCESSABLE')
-    }
+          for await (const event of stream) {
+            if (event.type === 'content') {
+              fullContent += event.delta
+              controller.enqueue(encoder.encode(`event: content\ndata: ${JSON.stringify({ delta: event.delta })}\n\n`))
+            } else if (event.type === 'sources') {
+              controller.enqueue(encoder.encode(`event: sources\ndata: ${JSON.stringify({ sources: event.sources })}\n\n`))
+            } else if (event.type === 'done') {
+              // Parse the JSON response, stripping any metadata blob
+              const mindMapData = extractMindMapJson(fullContent)
+              if (!mindMapData) {
+                controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: 'Could not extract concept map from the selected sources.' })}\n\n`))
+                controller.close()
+                return
+              }
 
-    const now = new Date().toISOString()
-    const dateStr = now.slice(0, 10)
-    const title = topic ? topic.slice(0, 60) : `Mind Map — ${dateStr}`
-    const note = createNote({ id: `note_${uuid()}`, notebookId, title, type: 'mindmap', mindMapData, createdAt: now, updatedAt: now })
-    return NextResponse.json(note, { status: 201 })
+              if (mindMapData.nodes.length < 2) {
+                controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: 'Fewer than two distinct concepts were identified in the selected sources.' })}\n\n`))
+                controller.close()
+                return
+              }
+
+              // Save the note
+              const now = new Date().toISOString()
+              const dateStr = now.slice(0, 10)
+              const title = topic ? topic.slice(0, 60) : `Mind Map — ${dateStr}`
+              const note = createNote({ id: `note_${uuid()}`, notebookId, title, type: 'mindmap', mindMapData, createdAt: now, updatedAt: now })
+              controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify({ note })}\n\n`))
+            }
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Stream error'
+          controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: msg })}\n\n`))
+        } finally {
+          controller.close()
+        }
+      },
+    })
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    })
   } catch (e) {
     return mapSdkError(e)
   }
