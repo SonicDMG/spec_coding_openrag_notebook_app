@@ -16,7 +16,7 @@ export default function HomePage() {
   const [creating, setCreating] = useState(false)
   const [createMode, setCreateMode] = useState<'new' | 'import'>('new')
   const [newName, setNewName] = useState('')
-  const [availableFilters, setAvailableFilters] = useState<{ id: string; name: string; description: string; documentCount: number }[]>([])
+  const [availableFilters, setAvailableFilters] = useState<{ id: string; name: string; description: string; documentCount: number }[] | null>(null)
   const [selectedFilterId, setSelectedFilterId] = useState<string>('')
   const [filtersLoading, setFiltersLoading] = useState(false)
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -30,7 +30,7 @@ export default function HomePage() {
   useEffect(() => { if (creating || renamingId) inputRef.current?.focus() }, [creating, renamingId])
 
   useEffect(() => {
-    if (createMode === 'import' && creating && availableFilters.length === 0 && !filtersLoading) {
+    if (createMode === 'import' && creating && availableFilters === null && !filtersLoading) {
       setFiltersLoading(true)
       fetch('/api/openrag/filters')
         .then(async res => {
@@ -41,7 +41,7 @@ export default function HomePage() {
         .catch(() => setError('Failed to load OpenRAG filters.'))
         .finally(() => setFiltersLoading(false))
     }
-  }, [createMode, creating, availableFilters.length, filtersLoading])
+  }, [createMode, creating, availableFilters, filtersLoading])
 
   async function load() {
     setLoading(true)
@@ -71,7 +71,7 @@ export default function HomePage() {
     setNewName('')
     setCreateMode('new')
     setSelectedFilterId('')
-    setAvailableFilters([])
+    setAvailableFilters(null)
   }
 
   async function renameNotebook(id: string) {
@@ -132,7 +132,7 @@ export default function HomePage() {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                   <Loader2 size={14} className="animate-spin" /> Loading filters…
                 </div>
-              ) : availableFilters.length === 0 ? (
+              ) : !availableFilters || availableFilters.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-2">No available OpenRAG filters found.</p>
               ) : (
                 <div className="space-y-1.5">
