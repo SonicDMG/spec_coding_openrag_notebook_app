@@ -10,11 +10,24 @@ type Ctx = { params: Promise<{ notebookId: string }> }
 export const maxDuration = 300
 
 function buildPrompt(topic?: string) {
-  const topicLine = topic ? `Focus on the topic: ${topic}.` : 'Use the central concept from the content.'
+  const topicLine = topic
+    ? `The central topic is: ${topic}.`
+    : 'Derive the central topic from the overall collection or dataset name found in the content.'
   return `You are a knowledge mapping assistant. ${topicLine}
-Identify key concepts and their relationships in the provided documents.
+
+Analyze the documents to understand the domain and ontology of the data. Build a hierarchical mind map that reflects the natural structure of the content:
+
+1. CENTRAL NODE (id "n1"): The name of the overall collection, dataset, or main subject — use the actual title from the content.
+2. CATEGORY NODES: The natural groupings, types, classes, or classifications that exist within the data. Use the exact category names from the content.
+3. ITEM NODES: Individual named entities, records, or items within each category — use their actual names or titles from the data, not paraphrases.
+4. DETAIL NODES: Every item node must have children showing its actual properties and attributes from the content — things like stat values, damage types, effects, costs, ranges, descriptions, or any other domain-specific facts. Use concise factual labels with no type prefix (e.g. "2d6 fire", "60 ft range", "3 MP", "stuns 1 turn"). Every item node must have at least 2 detail node children.
+
+Core rule: no named entity node should ever be a leaf — it must always have children with supporting detail pulled from the content.
+
+Use the data's own vocabulary for every label. Edge labels must describe the real relationship (e.g. "includes", "contains", "has", "deals", "costs", "range", "effect") — never use vague labels like "relates to".
+
 Return ONLY strictly valid JSON — no prose, no markdown fences, no extra characters. Use this exact format:
-{"nodes":[{"id":"n1","label":"ConceptA"},{"id":"n2","label":"ConceptB"},{"id":"n3","label":"ConceptC"}],"edges":[{"from":"n1","to":"n2","label":"relates to"},{"from":"n1","to":"n3","label":"includes"}]}
+{"nodes":[{"id":"n1","label":"Collection Title"},{"id":"n2","label":"Category A"},{"id":"n3","label":"Item Name"},{"id":"n4","label":"Detail: value"}],"edges":[{"from":"n1","to":"n2","label":"includes"},{"from":"n2","to":"n3","label":"contains"},{"from":"n3","to":"n4","label":"has"}]}
 Rules: every edge "from"/"to" must reference an existing node id; each object must open with exactly { and a quoted key; the output must parse with JSON.parse() without errors.`
 }
 
@@ -74,7 +87,7 @@ export async function POST(req: Request, { params }: Ctx) {
       async start(controller) {
         try {
           const topicDesc = topic ? ` about "${topic}"` : ''
-          const statusMsg = `I have started creating a mind map${topicDesc} for you.\n\nThis will identify key concepts and their relationships from your selected sources, organizing them into a visual diagram.\n\nYou can find it in the Notes panel once it finishes generating.`
+          const statusMsg = `I have started creating a mind map${topicDesc} for you.\n\nThis will analyze the structure of your selected sources — discovering categories, groupings, and individual items — and organize them into a hierarchical visual diagram.\n\nYou can find it in the Notes panel once it finishes generating.`
           controller.enqueue(encoder.encode(`event: status\ndata: ${JSON.stringify({ message: statusMsg })}\n\n`))
 
           for await (const event of stream) {
