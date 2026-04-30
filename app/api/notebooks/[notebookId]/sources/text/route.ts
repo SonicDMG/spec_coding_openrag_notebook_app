@@ -30,7 +30,8 @@ export async function POST(req: Request, { params }: Ctx) {
     }
 
     const sourceId = `src_${uuid()}`
-    const openragFilename = `${notebookId}-${sourceId}.txt`
+    const sanitizedTitle = title.replace(/[^\w\-]/g, '_').replace(/_+/g, '_').slice(0, 60)
+    const openragFilename = `${sourceId}-${sanitizedTitle}.txt`
 
     const blob = new Blob([body], { type: 'text/plain' })
     const result = await openrag.documents.ingest({ file: blob, filename: openragFilename })

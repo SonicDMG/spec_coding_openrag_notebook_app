@@ -73,6 +73,16 @@ export default function NotebookPage() {
     }
   }
 
+  async function refreshSources() {
+    try {
+      const res = await fetch(`/api/notebooks/${notebookId}/sources`)
+      if (res.ok) {
+        const data = await res.json()
+        setSources(data.sources)
+      }
+    } catch { /* best-effort */ }
+  }
+
   function toggleSource(id: string) {
     setSelectedIds(prev => {
       const next = new Set(prev)
@@ -181,8 +191,8 @@ export default function NotebookPage() {
               sources={sources}
               selectedIds={selectedIds}
               onToggle={toggleSource}
-              onSourceAdded={load}
-              onSourceDeleted={load}
+              onSourceAdded={refreshSources}
+              onSourceDeleted={refreshSources}
             />
           </div>
           <div className="bg-background overflow-hidden">

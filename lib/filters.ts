@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { openrag } from './openrag'
-import { getSources, getSource, updateNotebook, createSource } from './store'
+import { getSources, getSource, getNotebook, updateNotebook, createSource } from './store'
 import type { SourceType } from './types'
 
 export const QUERY_LIMIT = 10
@@ -8,6 +8,12 @@ export const QUERY_SCORE_THRESHOLD = 0.3
 
 // In-memory lock to prevent concurrent filter updates for the same notebook
 const filterUpdateLocks = new Map<string, Promise<void>>()
+
+function buildFilterName(notebookId: string, notebookName: string): string {
+  const sanitized = notebookName.replace(/\s+/g, '-').replace(/[^\w\-]/g, '').toLowerCase().slice(0, 40)
+  const shortId = notebookId.replace(/^nb_/, '').slice(0, 8)
+  return `${sanitized}-${shortId}`
+}
 
 function buildQueryData(filenames: string[]) {
   return {
@@ -18,7 +24,7 @@ function buildQueryData(filenames: string[]) {
 }
 
 export async function createNotebookFilter(notebookId: string, notebookName: string): Promise<string> {
-  const filterName = `notebook-${notebookId}`
+  const filterName = buildFilterName(notebookId, notebookName)
 
   try {
     const existingFilters = await openrag.knowledgeFilters.search(filterName, 10)
@@ -51,25 +57,33 @@ export async function updateNotebookFilter(filterId: string, notebookId: string)
     const sources = getSources(notebookId)
     const filenames = sources.map(s => s.openragFilename)
 
+    if (filenames.length === 0) {
+      filterUpdateLocks.delete(notebookId)
+      return
+    }
+
     try {
       await openrag.knowledgeFilters.update(filterId, {
         queryData: buildQueryData(filenames),
       })
     } catch (error) {
       console.error('Filter update failed:', error)
-      const name = (error as any)?.name
-      if (name === 'NotFoundError' || name === 'ServerError') {
-        console.log('Attempting to recreate filter...')
+      if ((error as any)?.name === 'NotFoundError') {
+        // The filter was deleted from OpenRAG (e.g. manual cleanup). Find or
+        // recreate it and update the notebook record so future calls use the
+        // correct ID.
         try {
-          const result = await openrag.knowledgeFilters.create({
-            name: `notebook-${notebookId}`,
-            description: `Recreated filter for notebook`,
-            queryData: buildQueryData(filenames),
-          })
-          console.log('Filter recreated with ID:', result.id)
-          updateNotebook(notebookId, { openragFilterId: result.id! })
-        } catch (recreateError) {
-          console.error('Filter recreation also failed:', recreateError)
+          const notebook = getNotebook(notebookId)
+          if (notebook) {
+            const newFilterId = await createNotebookFilter(notebookId, notebook.name)
+            updateNotebook(notebookId, { openragFilterId: newFilterId })
+            await openrag.knowledgeFilters.update(newFilterId, {
+              queryData: buildQueryData(filenames),
+            })
+            console.log(`Filter re-linked for notebook ${notebookId}: ${newFilterId}`)
+          }
+        } catch (relinkError) {
+          console.error('Filter re-link failed:', relinkError)
         }
       }
     } finally {
@@ -100,7 +114,10 @@ export async function importNotebookFilterSources(notebookId: string, filterId: 
     else if (lower.endsWith('.html')) type = 'html'
     else if (lower.endsWith('.docx')) type = 'docx'
 
-    const title = filename.replace(/^notebook-[^-]+-/, '').replace(/\.(pdf|txt|csv|md|html|docx)$/i, '') || filename
+    const title = filename
+      .replace(/^src_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '')
+      .replace(/\.(pdf|txt|csv|md|html|docx)$/i, '')
+      .replace(/_/g, ' ') || filename
 
     createSource({
       id: `src_${uuid()}`,

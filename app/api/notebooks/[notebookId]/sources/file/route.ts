@@ -64,7 +64,8 @@ export async function POST(req: Request, { params }: Ctx) {
     }
 
     const sourceId = `src_${uuid()}`
-    const openragFilename = `${notebookId}-${sourceId}${ext}`
+    const sanitizedName = file.name.replace(/[^\w.\-]/g, '_')
+    const openragFilename = `${sourceId}-${sanitizedName}`
 
     if (sourceExistsByFilename(notebookId, openragFilename)) {
       return err(409, 'A source with this filename already exists in the notebook.', 'DUPLICATE_SOURCE')
@@ -74,10 +75,9 @@ export async function POST(req: Request, { params }: Ctx) {
 
     const result = await openrag.documents.ingest({ file: blob, filename: openragFilename })
 
-    try {
-      await openrag.documents.waitForTask(result.task_id)
-    } catch (waitError) {
-      console.error('Task wait error:', waitError)
+    const taskStatus = await openrag.documents.waitForTask(result.task_id)
+    if (taskStatus.failed_files > 0 || taskStatus.status === 'failed') {
+      return err(422, 'OpenRAG failed to process the document.', 'PROCESSING_ERROR')
     }
 
     const source = createSource({

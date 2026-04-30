@@ -50,7 +50,8 @@ export async function POST(req: Request, { params }: Ctx) {
     }
 
     const sourceId = `src_${uuid()}`
-    const openragFilename = `${notebookId}-${sourceId}.txt`
+    const hostname = new URL(url).hostname.replace(/[^\w.\-]/g, '_')
+    const openragFilename = `${sourceId}-${hostname}.txt`
     const finalTitle = title || new URL(url).hostname
 
     const blob = new Blob([text], { type: 'text/plain' })

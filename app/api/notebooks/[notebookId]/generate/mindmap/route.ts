@@ -13,8 +13,9 @@ function buildPrompt(topic?: string) {
   const topicLine = topic ? `Focus on the topic: ${topic}.` : 'Use the central concept from the content.'
   return `You are a knowledge mapping assistant. ${topicLine}
 Identify key concepts and their relationships in the provided documents.
-Return ONLY valid JSON in this exact format — no prose, no markdown fences:
-{"nodes":[{"id":"n1","label":"Concept"}],"edges":[{"from":"n1","to":"n2","label":"relates to"}]}`
+Return ONLY strictly valid JSON — no prose, no markdown fences, no extra characters. Use this exact format:
+{"nodes":[{"id":"n1","label":"ConceptA"},{"id":"n2","label":"ConceptB"},{"id":"n3","label":"ConceptC"}],"edges":[{"from":"n1","to":"n2","label":"relates to"},{"from":"n1","to":"n3","label":"includes"}]}
+Rules: every edge "from"/"to" must reference an existing node id; each object must open with exactly { and a quoted key; the output must parse with JSON.parse() without errors.`
 }
 
 // Extract the JSON object containing nodes and edges from the response.
@@ -31,7 +32,9 @@ function extractMindMapJson(content: string): MindMapData | null {
   const edgesEnd = edgesMatch.index! + edgesMatch[0]!.length
 
   try {
-    const jsonStr = content.slice(nodesStart, edgesEnd)
+    let jsonStr = content.slice(nodesStart, edgesEnd)
+    // Fix common LLM JSON artifact: {"{"key" -> {"key"
+    jsonStr = jsonStr.replace(/\{"\{"/g, '{"')
     const data = JSON.parse(jsonStr)
     if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) return null
     return data

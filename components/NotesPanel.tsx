@@ -155,9 +155,10 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
     const prompt = overridePrompt ?? generatePrompt
     const extra = mode === 'table' ? { prompt } : mode === 'mindmap' ? { topic: prompt } : {}
 
-    // Generate message IDs upfront so we can update them
     const thinkingMsgId = `msg_${Date.now()}_thinking`
-    const completionMsgId = `msg_${Date.now() + 1}_completion`
+    // Overview produces prose — stream it; table/mindmap produce JSON — skip raw content
+    const isStreamable = mode === 'overview'
+    let streamedContent = ''
 
     try {
       const res = await fetch(`/api/notebooks/${notebookId}/generate/${endpoint}`, {
@@ -174,7 +175,6 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
         return
       }
 
-      // Stream the response
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
@@ -196,26 +196,24 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
           const data = JSON.parse(dataLine.slice(5).trim())
 
           if (eventType === 'status') {
-            // Add initial thinking message (only once)
             if (!hasThinkingMsg) {
-              addMessage({ id: thinkingMsgId, role: 'assistant', content: data.message })
+              // Start with empty content so the blinking cursor shows while generating
+              addMessage({ id: thinkingMsgId, role: 'assistant', content: '' })
               hasThinkingMsg = true
             }
           } else if (eventType === 'content') {
-            // Skip content events - we don't want to show raw JSON in the chat
-            // The actual content is saved as a note, not displayed in chat
+            if (isStreamable && hasThinkingMsg) {
+              streamedContent += data.delta
+              updateMessage(thinkingMsgId, { content: streamedContent })
+            }
           } else if (eventType === 'sources') {
-            // Attach sources to the thinking message
             if (hasThinkingMsg) {
               updateMessage(thinkingMsgId, { sources: data.sources })
             }
           } else if (eventType === 'done') {
-            // Generation complete - update with completion message and suggestions
             const note = data.note
             const typeLabel = note.type === 'mindmap' ? 'mind map' : note.type === 'table' ? 'data table' : 'overview'
-            const completionMsg = `I've finished creating the ${typeLabel} "${note.title}". You can find it in the Notes panel.`
 
-            // Build suggestions for follow-up
             const suggestions: ChatSuggestion[] = []
             if (note.type === 'overview') {
               suggestions.push({ label: 'Create a table', action: 'generate', mode: 'table' })
@@ -228,10 +226,14 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
               suggestions.push({ label: 'Create a table', action: 'generate', mode: 'table' })
             }
 
-            // Update the thinking message with completion and suggestions
             if (hasThinkingMsg) {
-              const statusMsg = `I have started creating a ${typeLabel} for you.\n\nThis will analyze your selected sources and extract key information.\n\nYou can find it in the Notes panel once it finishes generating.`
-              updateMessage(thinkingMsgId, { content: statusMsg + '\n\n' + completionMsg, suggestions })
+              if (isStreamable) {
+                // Streamed content is already in the message — just attach suggestions
+                updateMessage(thinkingMsgId, { suggestions })
+              } else {
+                const completionMsg = `I've finished creating the ${typeLabel} "${note.title}". You can find it in the Notes panel.`
+                updateMessage(thinkingMsgId, { content: completionMsg, suggestions })
+              }
             }
 
             setGenerateMode(null)
