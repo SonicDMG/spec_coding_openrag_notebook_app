@@ -98,6 +98,15 @@ _Read `requirements.md`, `design.md`, `openapi.yaml`._
 3. _Write tests and run them after each task_
 4. _Mark each task done in `todo.md` when it passes_
 
+### 4e. Prompt for fixing failing tests
+
+_Run all tests. For any that fail:_
+
+1. _Read the error output_
+2. _Check `openapi.yaml` for the expected behavior_
+3. _Fix the implementation, not the test_
+4. _Re-run until green_
+
 ## 5. Building the Web UI
 _*Bonus Step*_
 
