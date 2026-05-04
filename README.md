@@ -41,11 +41,13 @@ Once OpenRAG is running, generate an API key from the OpenRAG admin interface or
 
 ## 2. Configure your environment
 
-Copy the example environment file and fill in your values:
+Copy the example environment file and fill in your values. The file name may vary by framework (e.g. `.env`, `.env.local`):
 
 ```bash
-cp .env.local.example .env.local
+cp .env.example .env
 ```
+
+At minimum you will need:
 
 | Variable | Description |
 |----------|-------------|
