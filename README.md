@@ -75,7 +75,9 @@ The app runs on [http://localhost:3001](http://localhost:3001).
 
 ## 4. Building the service layer
 
-To build this application from scratch, we use an approach called **Spec Coding**. This is a multi-step process where we guide an AI coding agent (like Claude Code, IBM Bob, or Cursor) to generate a **requirements doc**, then a **design doc** and **OpenAPI specification**, then validate coverage, and finally implement — one task at a time.
+You can use this approach to build **any app you like** — the notebook app in this repo is just one example of what's possible with OpenRAG. The prompts below use it as a reference, but feel free to substitute your own idea.
+
+We use an approach called **Spec Coding**: guiding an AI coding agent (like Claude Code, IBM Bob, or Cursor) to generate a **requirements doc**, then a **design doc** and **OpenAPI specification**, then validate coverage, and finally implement — one task at a time.
 
 ### Sample prompts
 
