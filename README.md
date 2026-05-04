@@ -85,11 +85,15 @@ _Read the `requirements.md` document. From those requirements:_
 2. _Inside `design.md`, detail the creation of a Next.js 14 App Router application (TypeScript) with server-side Route Handlers for all API endpoints. Use SQLite via `better-sqlite3` for notebook/source/note metadata persistence. Use the `openrag-sdk` npm package to communicate with an OpenRAG instance for document ingestion, knowledge filter management, and RAG chat. Be sure each endpoint maps back to a REQ-ID._
 3. _Create an `openapi.yaml` (OpenAPI 3.1) file that describes all API endpoints, request/response schemas, and error responses._
 
-### 4c. Prompt for generating the TODO list
+### 4c. Prompt for validating the OpenAPI spec
+
+_Validate `openapi.yaml`. Check that every REQ-ID in `requirements.md` is covered by at least one endpoint. List any gaps and fix them._
+
+### 4d. Prompt for generating the TODO list
 
 _Read the `requirements.md`, `design.md`, and `openapi.yaml`. From those requirements, create a `todo.md` file that breaks down the tasks required to complete the project. Each task should be checkable when complete._
 
-### 4d. Prompt for implementing the TODO list
+### 4e. Prompt for implementing the TODO list
 
 _Read `requirements.md`, `design.md`, `openapi.yaml`, and `todo.md`. Work through each unchecked task one at a time, implementing the code, marking each task done as you complete it, and stopping to confirm before moving to the next section._
 
