@@ -80,10 +80,15 @@ _This should be an MVP/demo level project, no production/enterprise level code, 
 
 ### 4b. Prompt for generating the design doc and OpenAPI spec
 
-_Read the `requirements.md` document. From those requirements:_
-1. _Create a `design.md` file that describes the data models (Notebook, Source, Note) and system architecture._
-2. _Inside `design.md`, detail the creation of a Next.js 14 App Router application (TypeScript) with server-side Route Handlers for all API endpoints. Use SQLite via `better-sqlite3` for notebook/source/note metadata persistence. Use the `openrag-sdk` npm package to communicate with an OpenRAG instance for document ingestion, knowledge filter management, and RAG chat. Be sure each endpoint maps back to a REQ-ID._
-3. _Create an `openapi.yaml` (OpenAPI 3.1) file that describes all API endpoints, request/response schemas, and error responses._
+First, install the OpenRAG SDK SKILL so your agent knows how to use it:
+
+> Please fetch the SKILL at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/sdk/SKILL.md and install it into my local `.claude/skills` directory.
+
+Then prompt your agent:
+
+_Read `requirements.md`. From those requirements:_
+1. _Create a `design.md` describing the data models and system architecture. Use the `openrag_sdk` SKILL for all OpenRAG integration. Be sure each endpoint maps back to a REQ-ID._
+2. _Create an `openapi.yaml` (OpenAPI 3.1) file that describes all API endpoints, request/response schemas, and error responses._
 
 ### 4c. Prompt for validating the OpenAPI spec
 
