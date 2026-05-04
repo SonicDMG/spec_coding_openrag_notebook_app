@@ -22,17 +22,9 @@ Follow the [OpenRAG quickstart](https://docs.openr.ag/quickstart) to get a local
 
 ### 1b. Install OpenRAG using the Claude Code SKILL (alternative)
 
-The OpenRAG repo includes a Claude Code SKILL that automates the installation process. To use it:
+The OpenRAG repo includes a SKILL that automates the installation process. No cloning required — just ask your AI coding assistant (Claude Code, Cursor, etc.) to fetch and follow the instructions directly from GitHub:
 
-1. Clone the OpenRAG repository:
-   ```bash
-   git clone https://github.com/langflow-ai/openrag
-   cd openrag
-   ```
-2. Open the directory in Claude Code and run:
-   ```
-   /openrag_install
-   ```
+> Please fetch the instructions at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/install/SKILL.md and follow them to install OpenRAG on my machine.
 
 The SKILL will draft a requirements spec, create a task list, guide you through configuration, and verify that OpenRAG is running at `http://localhost:3000` before finishing.
 
