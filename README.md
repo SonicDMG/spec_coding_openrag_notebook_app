@@ -1,32 +1,41 @@
 # Workshop - Spec coding a simple OpenRAG Notebook application
 
 ## Workshop Contents
-1. [Set up OpenRAG](#1-set-up-openrag)
-2. [Run the example app (optional)](#2-run-the-example-app-optional)
-3. [Building the service layer](#3-building-the-service-layer)
-4. [Building the Web UI](#4-building-the-web-ui)
+1. [Install OpenRAG SKILLs](#1-install-openrag-skills)
+2. [Set up OpenRAG](#2-set-up-openrag)
+3. [Run the example app (optional)](#3-run-the-example-app-optional)
+4. [Building the service layer](#4-building-the-service-layer)
+5. [Building the Web UI](#5-building-the-web-ui)
 
 ## Prerequisites
  - An OpenRAG instance (local or hosted)
  - An agentic coding tool (Claude Code, IBM Bob, Cursor, etc.)
 
-## 1. Set up OpenRAG
+## 1. Install OpenRAG SKILLs
 
-This application uses [OpenRAG](https://openr.ag) as its document store and RAG engine. OpenRAG handles document ingestion, vector embeddings, knowledge filters, and chat.
+Before anything else, install both OpenRAG SKILLs into your AI coding agent. This gives your agent the knowledge it needs to install OpenRAG and integrate with it throughout the workshop — with no interruptions later.
 
-### 1a. Run OpenRAG locally
-
-Follow the [OpenRAG quickstart](https://docs.openr.ag/quickstart) to get a local instance running. By default it listens on port `3000`.
-
-### 1b. Install OpenRAG using an AI coding agent SKILL (alternative)
-
-The OpenRAG repo includes a SKILL that automates the installation process. No cloning required — ask your AI coding agent (Claude Code, IBM Bob, Cursor, etc.) to fetch and install the SKILL locally, then invoke it:
+Ask your AI coding agent (Claude Code, IBM Bob, Cursor, etc.) to run both of the following:
 
 ```
 Please fetch the SKILL at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/install/SKILL.md and install it into your local skills directory.
 ```
 
-Once installed, invoke it with:
+```
+Please fetch the SKILL at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/sdk/SKILL.md and install it into your local skills directory.
+```
+
+## 2. Set up OpenRAG
+
+This application uses [OpenRAG](https://openr.ag) as its document store and RAG engine. OpenRAG handles document ingestion, vector embeddings, knowledge filters, and chat.
+
+### 2a. Run OpenRAG locally
+
+Follow the [OpenRAG quickstart](https://docs.openr.ag/quickstart) to get a local instance running. By default it listens on port `3000`.
+
+### 2b. Install OpenRAG using the SKILL (alternative)
+
+With the install SKILL already set up in step 1, simply invoke it:
 
 ```
 /openrag_install
@@ -34,15 +43,15 @@ Once installed, invoke it with:
 
 The SKILL will draft a requirements spec, create a task list, guide you through configuration, and verify that OpenRAG is running at `http://localhost:3000` before finishing.
 
-### 1c. Obtain your OpenRAG API key
+### 2c. Obtain your OpenRAG API key
 
 Once OpenRAG is running, generate an API key from the OpenRAG admin interface or follow the instructions in the OpenRAG documentation. Copy the key — you will need it in the next step.
 
-## 2. Run the example app (optional)
+## 3. Run the example app (optional)
 
 This repo includes a fully built reference implementation. If you'd like to run it before building your own, follow these steps.
 
-### 2a. Configure your environment
+### 3a. Configure your environment
 
 Copy the example environment file and fill in your values:
 
@@ -55,7 +64,7 @@ cp .env.local.example .env.local
 | `OPENRAG_API_KEY` | API key for your OpenRAG instance |
 | `OPENRAG_URL` | Base URL of your OpenRAG instance (e.g., `http://localhost:3000`) |
 
-### 2b. Install dependencies and start the app
+### 3b. Install dependencies and start the app
 
 ```bash
 npm install
@@ -64,9 +73,9 @@ npm run dev
 
 The app runs on [http://localhost:3001](http://localhost:3001).
 
-## 3. Building the service layer
+## 4. Building the service layer
 
-To build this application from scratch, we use an approach called **Spec Coding**. This is a multi-step process where we guide an AI coding agent (like Claude Code, Cursor, or IBM Bob) to generate a **requirements doc**, then a **design doc** and **OpenAPI specification**, then a **TODO list**, and finally the implementation — one task at a time.
+To build this application from scratch, we use an approach called **Spec Coding**. This is a multi-step process where we guide an AI coding agent (like Claude Code, IBM Bob, or Cursor) to generate a **requirements doc**, then a **design doc** and **OpenAPI specification**, then validate coverage, and finally implement — one task at a time.
 
 ### Sample prompts
 
@@ -85,14 +94,6 @@ This should be an MVP/demo level project, no production/enterprise level code, n
 ```
 
 ### 4b. Prompt for generating the design doc and OpenAPI spec
-
-First, install the OpenRAG SDK SKILL so your agent knows how to use it. Ask your AI coding agent (Claude Code, IBM Bob, Cursor, etc.):
-
-```
-Please fetch the SKILL at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/sdk/SKILL.md and install it into your local skills directory.
-```
-
-Then prompt your agent:
 
 ```
 Read requirements.md. From those requirements:
@@ -128,7 +129,7 @@ Run all tests. For any that fail:
 4. Re-run until green
 ```
 
-## 4. Building the Web UI
+## 5. Building the Web UI
 _*Bonus Step*_
 
 ```
