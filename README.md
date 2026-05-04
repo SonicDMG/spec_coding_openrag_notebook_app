@@ -18,7 +18,7 @@ This application uses [OpenRAG](https://openr.ag) as its document store and RAG 
 
 ### 1a. Run OpenRAG locally
 
-Follow the [OpenRAG quickstart](https://openr.ag) to get a local instance running. By default it listens on port `3000`.
+Follow the [OpenRAG quickstart](https://docs.openr.ag/quickstart) to get a local instance running. By default it listens on port `3000`.
 
 ### 1b. Obtain your OpenRAG API key
 
