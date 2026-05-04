@@ -137,3 +137,35 @@ _*Bonus Step*_
 ```
 Can you help me build a three-panel web UI on top of the service layer? The left panel shows sources with checkboxes and a search filter. The center panel is a chat interface with streaming responses. The right panel is a notes list that supports AI-generated overviews, data tables, and mind maps. All API calls should use the endpoints defined in openapi.yaml.
 ```
+
+## Wrapping up
+
+If you've made it this far, you've spec coded a working RAG-powered application from scratch using an AI coding agent — nice work. From here, the app is yours to extend, redesign, or tear down and rebuild in a completely different direction.
+
+### Troubleshooting
+
+If things go sideways, here are some things to check:
+
+**OpenRAG won't connect**
+- Confirm OpenRAG is running: open `http://localhost:3000` in your browser
+- Double-check `OPENRAG_URL` in your `.env` file — no trailing slash
+- Verify your `OPENRAG_API_KEY` is valid and hasn't expired
+
+**The agent goes off the rails**
+- Pull it back to the spec: ask it to re-read `requirements.md` and `openapi.yaml` before continuing
+- Break the problem into a smaller task and ask it to focus on just that
+- If the code is in a bad state, ask the agent to summarize what changed and walk it back to the last known good point using git
+
+**Tests keep failing**
+- Make sure your OpenRAG instance is running when tests execute
+- Ask the agent to run a single failing test in isolation and explain the error before attempting a fix
+- Remind the agent: fix the implementation, not the test
+
+**The agent invented something not in the spec**
+- Ask it to identify which REQ-ID covers the behavior in question
+- If none does, ask it to remove the code or add a requirement first before implementing
+
+### Resources
+
+- OpenRAG documentation: [docs.openr.ag](https://docs.openr.ag)
+- OpenRAG GitHub: [github.com/langflow-ai/openrag](https://github.com/langflow-ai/openrag)
