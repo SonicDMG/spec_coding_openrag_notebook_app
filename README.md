@@ -64,6 +64,13 @@ cp .env.local.example .env.local
 | `OPENRAG_API_KEY` | API key for your OpenRAG instance |
 | `OPENRAG_URL` | Base URL of your OpenRAG instance (e.g., `http://localhost:3000`) |
 
+A completed `.env.local` should look like this:
+
+```
+OPENRAG_API_KEY=orag_abc123xyz
+OPENRAG_URL=http://localhost:3000
+```
+
 ### 3b. Install dependencies and start the app
 
 ```bash
