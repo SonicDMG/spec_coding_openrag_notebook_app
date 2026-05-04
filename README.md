@@ -56,12 +56,12 @@ At minimum you will need:
 
 ## 3. Install dependencies and run the app
 
-```bash
-npm install
-npm run dev
-```
+Install dependencies and start the app using your framework's standard commands. For example:
 
-The app runs on [http://localhost:3001](http://localhost:3001).
+- **Node.js:** `npm install && npm run dev`
+- **Python:** `pip install -r requirements.txt && python app.py`
+
+Check your framework's documentation for the correct commands. Your agent will also be able to tell you exactly what to run.
 
 ## 4. Building the service layer
 
