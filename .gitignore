@@ -3,3 +3,6 @@ node_modules/
 .env.local
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
+tsconfig.tsbuildinfo

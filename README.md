@@ -8,6 +8,10 @@
   _This repo contains a fully built reference app — an open-source notebook powered by OpenRAG — and a step-by-step workshop for spec coding your own._
 </div>
 
+<div align="center">
+  <img src="assets/openrag_vhs.gif" alt="OpenRAG Demo" width="600" />
+</div>
+
 ## Workshop Contents
 1. [Install OpenRAG SKILLs](#1-install-openrag-skills)
 2. [Set up OpenRAG](#2-set-up-openrag)
