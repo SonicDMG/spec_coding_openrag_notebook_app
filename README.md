@@ -20,7 +20,23 @@ This application uses [OpenRAG](https://openr.ag) as its document store and RAG 
 
 Follow the [OpenRAG quickstart](https://docs.openr.ag/quickstart) to get a local instance running. By default it listens on port `3000`.
 
-### 1b. Obtain your OpenRAG API key
+### 1b. Install OpenRAG using the Claude Code SKILL (alternative)
+
+The OpenRAG repo includes a Claude Code SKILL that automates the installation process. To use it:
+
+1. Clone the OpenRAG repository:
+   ```bash
+   git clone https://github.com/langflow-ai/openrag
+   cd openrag
+   ```
+2. Open the directory in Claude Code and run:
+   ```
+   /openrag_install
+   ```
+
+The SKILL will draft a requirements spec, create a task list, guide you through configuration, and verify that OpenRAG is running at `http://localhost:3000` before finishing.
+
+### 1c. Obtain your OpenRAG API key
 
 Once OpenRAG is running, generate an API key from the OpenRAG admin interface or follow the instructions in the OpenRAG documentation. Copy the key — you will need it in the next step.
 
