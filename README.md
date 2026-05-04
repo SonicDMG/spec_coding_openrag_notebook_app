@@ -4,11 +4,6 @@
   # 🐕 Spec Code Your Next RAG App 🤖
 
   <sub><i>RAG ain't dead yet</i></sub>
-</div>
-
----
-
-<div align="center">
 
   ### Build AI-powered applications in minutes using OpenRAG and your favorite AI coding agent
 
