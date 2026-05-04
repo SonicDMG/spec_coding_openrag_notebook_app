@@ -89,13 +89,14 @@ _Read the `requirements.md` document. From those requirements:_
 
 _Validate `openapi.yaml`. Check that every REQ-ID in `requirements.md` is covered by at least one endpoint. List any gaps and fix them._
 
-### 4d. Prompt for generating the TODO list
+### 4d. Prompt for implementation
 
-_Read the `requirements.md`, `design.md`, and `openapi.yaml`. From those requirements, create a `todo.md` file that breaks down the tasks required to complete the project. Each task should be checkable when complete._
+_Read `requirements.md`, `design.md`, `openapi.yaml`._
 
-### 4e. Prompt for implementing the TODO list
-
-_Read `requirements.md`, `design.md`, `openapi.yaml`, and `todo.md`. Work through each unchecked task one at a time, implementing the code, marking each task done as you complete it, and stopping to confirm before moving to the next section._
+1. _Create `todo.md` breaking the spec into tasks_
+2. _Implement each task. Use `.env` for creds._
+3. _Write tests and run them after each task_
+4. _Mark each task done in `todo.md` when it passes_
 
 ## 5. Building the Web UI
 _*Bonus Step*_
