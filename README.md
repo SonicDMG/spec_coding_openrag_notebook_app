@@ -68,15 +68,17 @@ To build this application from scratch, we use an approach called **Spec Coding*
 
 ### 4a. Prompt for generating the requirements doc
 
-_I'm building an open-source, locally-runnable notebook application inspired by NotebookLM, powered by OpenRAG. Write requirements in `requirements.md` with:_
+```
+I'm building an open-source, locally-runnable notebook application inspired by NotebookLM, powered by OpenRAG. Write requirements in requirements.md with:
 
-- _Numbered IDs (REQ-001, REQ-002 ...)_
-- _Acceptance criteria for each_
-- _Personas and User flows_
+- Numbered IDs (REQ-001, REQ-002 ...)
+- Acceptance criteria for each
+- Personas and User flows
 
-_Do not include any implementation details such as code or technology choices._
+Do not include any implementation details such as code or technology choices.
 
-_This should be an MVP/demo level project, no production/enterprise level code, no security concerns, build only the most basic application._
+This should be an MVP/demo level project, no production/enterprise level code, no security concerns, build only the most basic application.
+```
 
 ### 4b. Prompt for generating the design doc and OpenAPI spec
 
@@ -86,33 +88,43 @@ First, install the OpenRAG SDK SKILL so your agent knows how to use it:
 
 Then prompt your agent:
 
-_Read `requirements.md`. From those requirements:_
-1. _Create a `design.md` describing the data models and system architecture. Use the `openrag_sdk` SKILL for all OpenRAG integration. Be sure each endpoint maps back to a REQ-ID._
-2. _Create an `openapi.yaml` (OpenAPI 3.1) file that describes all API endpoints, request/response schemas, and error responses._
+```
+Read requirements.md. From those requirements:
+1. Create a design.md describing the data models and system architecture. Use the openrag_sdk SKILL for all OpenRAG integration. Be sure each endpoint maps back to a REQ-ID.
+2. Create an openapi.yaml (OpenAPI 3.1) file that describes all API endpoints, request/response schemas, and error responses.
+```
 
 ### 4c. Prompt for validating the OpenAPI spec
 
-_Validate `openapi.yaml`. Check that every REQ-ID in `requirements.md` is covered by at least one endpoint. List any gaps and fix them._
+```
+Validate openapi.yaml. Check that every REQ-ID in requirements.md is covered by at least one endpoint. List any gaps and fix them.
+```
 
 ### 4d. Prompt for implementation
 
-_Read `requirements.md`, `design.md`, `openapi.yaml`._
+```
+Read requirements.md, design.md, openapi.yaml.
 
-1. _Create `todo.md` breaking the spec into tasks_
-2. _Implement each task. Use `.env` for creds._
-3. _Write tests and run them after each task_
-4. _Mark each task done in `todo.md` when it passes_
+1. Create todo.md breaking the spec into tasks
+2. Implement each task. Use .env for creds.
+3. Write tests and run them after each task
+4. Mark each task done in todo.md when it passes
+```
 
 ### 4e. Prompt for fixing failing tests
 
-_Run all tests. For any that fail:_
+```
+Run all tests. For any that fail:
 
-1. _Read the error output_
-2. _Check `openapi.yaml` for the expected behavior_
-3. _Fix the implementation, not the test_
-4. _Re-run until green_
+1. Read the error output
+2. Check openapi.yaml for the expected behavior
+3. Fix the implementation, not the test
+4. Re-run until green
+```
 
 ## 5. Building the Web UI
 _*Bonus Step*_
 
-_Can you help me build a three-panel web UI on top of the service layer? The left panel shows sources with checkboxes and a search filter. The center panel is a chat interface with streaming responses. The right panel is a notes list that supports AI-generated overviews, data tables, and mind maps. Build it in React using Next.js App Router, Tailwind CSS, and shadcn/ui components. All API calls should use the endpoints defined in `openapi.yaml`._
+```
+Can you help me build a three-panel web UI on top of the service layer? The left panel shows sources with checkboxes and a search filter. The center panel is a chat interface with streaming responses. The right panel is a notes list that supports AI-generated overviews, data tables, and mind maps. All API calls should use the endpoints defined in openapi.yaml.
+```
