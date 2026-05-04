@@ -14,11 +14,11 @@
 
 ## 1. Set up OpenRAG
 
-This application uses [OpenRAG](https://github.com/datastax/openrag) as its document store and RAG engine. OpenRAG handles document ingestion, vector embeddings, knowledge filters, and chat.
+This application uses [OpenRAG](https://openr.ag) as its document store and RAG engine. OpenRAG handles document ingestion, vector embeddings, knowledge filters, and chat.
 
 ### 1a. Run OpenRAG locally
 
-Follow the [OpenRAG quickstart](https://github.com/datastax/openrag) to get a local instance running. By default it listens on port `3000`.
+Follow the [OpenRAG quickstart](https://openr.ag) to get a local instance running. By default it listens on port `3000`.
 
 ### 1b. Obtain your OpenRAG API key
 
