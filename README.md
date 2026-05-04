@@ -6,6 +6,8 @@
   ### Build AI-powered applications in minutes using OpenRAG and your favorite AI coding agent
 
   _This repo contains a fully built reference app — an open-source notebook powered by OpenRAG — and a step-by-step workshop for spec coding your own._
+
+  <sub><i>RAG ain't dead yet</i></sub>
 </div>
 
 ---
