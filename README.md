@@ -68,7 +68,15 @@ To build this application from scratch, we use an approach called **Spec Coding*
 
 ### 4a. Prompt for generating the requirements doc
 
-_I am building an open-source, locally-runnable notebook application inspired by NotebookLM. Users can create notebooks, add sources (text, PDF, or URL), chat with those sources using a RAG pipeline powered by OpenRAG, and save responses as notes. Notes can also include AI-generated artifacts such as overviews, data tables, and mind maps. Please help me build a `requirements.md` document for this project with numbered REQ-IDs, acceptance criteria for each, personas, and user flows. At this point, do not focus on implementation details or technology choices._
+_I'm building an open-source, locally-runnable notebook application inspired by NotebookLM, powered by OpenRAG. Write requirements in `requirements.md` with:_
+
+- _Numbered IDs (REQ-001, REQ-002 ...)_
+- _Acceptance criteria for each_
+- _Personas and User flows_
+
+_Do not include any implementation details such as code or technology choices._
+
+_This should be an MVP/demo level project, no production/enterprise level code, no security concerns, build only the most basic application._
 
 ### 4b. Prompt for generating the design doc and OpenAPI spec
 
