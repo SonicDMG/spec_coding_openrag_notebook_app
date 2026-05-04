@@ -2,10 +2,9 @@
 
 ## Workshop Contents
 1. [Set up OpenRAG](#1-set-up-openrag)
-2. [Configure your environment](#2-configure-your-environment)
-3. [Install dependencies and run the app](#3-install-dependencies-and-run-the-app)
-4. [Building the service layer](#4-building-the-service-layer)
-5. [Building the Web UI](#5-building-the-web-ui)
+2. [Run the example app (optional)](#2-run-the-example-app-optional)
+3. [Building the service layer](#3-building-the-service-layer)
+4. [Building the Web UI](#4-building-the-web-ui)
 
 ## Prerequisites
  - An OpenRAG instance (local or hosted)
@@ -39,31 +38,33 @@ The SKILL will draft a requirements spec, create a task list, guide you through 
 
 Once OpenRAG is running, generate an API key from the OpenRAG admin interface or follow the instructions in the OpenRAG documentation. Copy the key — you will need it in the next step.
 
-## 2. Configure your environment
+## 2. Run the example app (optional)
 
-Copy the example environment file and fill in your values. The file name may vary by framework (e.g. `.env`, `.env.local`):
+This repo includes a fully built reference implementation. If you'd like to run it before building your own, follow these steps.
+
+### 2a. Configure your environment
+
+Copy the example environment file and fill in your values:
 
 ```bash
-cp .env.example .env
+cp .env.local.example .env.local
 ```
-
-At minimum you will need:
 
 | Variable | Description |
 |----------|-------------|
 | `OPENRAG_API_KEY` | API key for your OpenRAG instance |
 | `OPENRAG_URL` | Base URL of your OpenRAG instance (e.g., `http://localhost:3000`) |
 
-## 3. Install dependencies and run the app
+### 2b. Install dependencies and start the app
 
-Install dependencies and start the app using your framework's standard commands. For example:
+```bash
+npm install
+npm run dev
+```
 
-- **Node.js:** `npm install && npm run dev`
-- **Python:** `pip install -r requirements.txt && python app.py`
+The app runs on [http://localhost:3001](http://localhost:3001).
 
-Check your framework's documentation for the correct commands. Your agent will also be able to tell you exactly what to run.
-
-## 4. Building the service layer
+## 3. Building the service layer
 
 To build this application from scratch, we use an approach called **Spec Coding**. This is a multi-step process where we guide an AI coding agent (like Claude Code, Cursor, or IBM Bob) to generate a **requirements doc**, then a **design doc** and **OpenAPI specification**, then a **TODO list**, and finally the implementation — one task at a time.
 
@@ -127,7 +128,7 @@ Run all tests. For any that fail:
 4. Re-run until green
 ```
 
-## 5. Building the Web UI
+## 4. Building the Web UI
 _*Bonus Step*_
 
 ```
