@@ -20,13 +20,15 @@ This application uses [OpenRAG](https://openr.ag) as its document store and RAG 
 
 Follow the [OpenRAG quickstart](https://docs.openr.ag/quickstart) to get a local instance running. By default it listens on port `3000`.
 
-### 1b. Install OpenRAG using the Claude Code SKILL (alternative)
+### 1b. Install OpenRAG using an AI coding agent SKILL (alternative)
 
-The OpenRAG repo includes a SKILL that automates the installation process. No cloning required — ask your AI coding assistant (Claude Code, Cursor, etc.) to install the SKILL locally first, then invoke it:
+The OpenRAG repo includes a SKILL that automates the installation process. No cloning required — ask your AI coding agent (Claude Code, IBM Bob, Cursor, etc.) to fetch and install the SKILL locally, then invoke it:
 
-> Please fetch the SKILL at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/install/SKILL.md and install it into my local `.claude/skills` directory.
+```
+Please fetch the SKILL at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/install/SKILL.md and install it into your local skills directory.
+```
 
-Once installed, invoke it:
+Once installed, invoke it with:
 
 ```
 /openrag_install
@@ -82,9 +84,11 @@ This should be an MVP/demo level project, no production/enterprise level code, n
 
 ### 4b. Prompt for generating the design doc and OpenAPI spec
 
-First, install the OpenRAG SDK SKILL so your agent knows how to use it:
+First, install the OpenRAG SDK SKILL so your agent knows how to use it. Ask your AI coding agent (Claude Code, IBM Bob, Cursor, etc.):
 
-> Please fetch the SKILL at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/sdk/SKILL.md and install it into my local `.claude/skills` directory.
+```
+Please fetch the SKILL at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/sdk/SKILL.md and install it into your local skills directory.
+```
 
 Then prompt your agent:
 
