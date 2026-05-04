@@ -8,9 +8,8 @@
 5. [Building the Web UI](#5-building-the-web-ui)
 
 ## Prerequisites
- - Node.js 18 or higher
  - An OpenRAG instance (local or hosted)
- - An agentic coding tool (Claude Code, Cursor, IBM Bob)
+ - An agentic coding tool (Claude Code, IBM Bob, Cursor, etc.)
 
 ## 1. Set up OpenRAG
 
