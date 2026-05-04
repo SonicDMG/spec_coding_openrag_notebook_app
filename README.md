@@ -3,14 +3,14 @@
 
   # 🐕 Spec Code Your Next RAG App 🤖
 
+  <sub><i>RAG ain't dead yet</i></sub>
+
+  ---
+
   ### Build AI-powered applications in minutes using OpenRAG and your favorite AI coding agent
 
   _This repo contains a fully built reference app — an open-source notebook powered by OpenRAG — and a step-by-step workshop for spec coding your own._
-
-  <sub><i>RAG ain't dead yet</i></sub>
 </div>
-
----
 
 ## Workshop Contents
 1. [Install OpenRAG SKILLs](#1-install-openrag-skills)
