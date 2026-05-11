@@ -66,6 +66,9 @@ You will need this key in the next step.
 
 ## 3. Run the example app (optional)
 
+> [!TIP]
+> This step is optional. If you're here to build your own app, skip ahead to [step 4](#4-building-the-service-layer).
+
 This repo includes a fully built reference implementation. If you'd like to run it before building your own, follow these steps.
 
 ### 3a. Configure your environment
