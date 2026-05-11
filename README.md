@@ -27,14 +27,12 @@
 
 Before anything else, install both OpenRAG SKILLs into your AI coding agent. This gives your agent the knowledge it needs to install OpenRAG and integrate with it throughout the workshop — with no interruptions later.
 
-Ask your AI coding agent (Claude Code, IBM Bob, Cursor, etc.) to run both of the following:
+Ask your AI coding agent (Claude Code, IBM Bob, Cursor, etc.) to run the following:
 
 ```
-Please fetch the SKILL at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/install/SKILL.md and install it into your local skills directory.
-```
-
-```
-Please fetch the SKILL at https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/sdk/SKILL.md and install it into your local skills directory.
+Please fetch and install both OpenRAG SKILLs into your global skills directory:
+- https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/install/SKILL.md
+- https://github.com/langflow-ai/openrag/blob/main/plugins/openrag/skills/sdk/SKILL.md
 ```
 
 ## 2. Set up OpenRAG
