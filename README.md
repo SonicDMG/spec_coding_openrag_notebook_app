@@ -55,7 +55,14 @@ The SKILL will draft a requirements spec, create a task list, guide you through 
 
 ### 2c. Obtain your OpenRAG API key
 
-Once OpenRAG is running, generate an API key from the OpenRAG admin interface or follow the instructions in the OpenRAG documentation. Copy the key — you will need it in the next step.
+Once OpenRAG is running at `http://localhost:3000`:
+
+1. Open **Settings** from the left navigation
+2. Scroll to the **API Keys** section
+3. Click **Create your first API key**, give it a name, and confirm
+4. Copy the key immediately — it starts with `orag_` and **will not be shown again**
+
+You will need this key in the next step.
 
 ## 3. Run the example app (optional)
 
