@@ -123,8 +123,12 @@ This should be an MVP/demo level project, no production/enterprise level code, n
 
 ```
 Read requirements.md. From those requirements:
-1. Create a design.md describing the data models and system architecture. Use the openrag_sdk SKILL for all OpenRAG integration. Be sure each endpoint maps back to a REQ-ID.
-2. Create an openapi.yaml (OpenAPI 3.1) file that describes all API endpoints, request/response schemas, and error responses.
+1. Create design.md with data model and knowledge filters needed for OpenRAG.
+2. Create openapi.yaml (OpenAPI 3.1) with all endpoints, schemas, and error responses.
+3. Map each endpoint back to a REQ-ID.
+4. Detail the technical requirements for frontend and backend.
+5. Use the openrag_sdk SKILL for all OpenRAG SDK integration details.
+6. Ask questions regarding the application tech stack to use for this type of app.
 ```
 
 ### 4c. Prompt for validating the OpenAPI spec
