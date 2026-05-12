@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuid } from 'uuid'
 import { createHash } from 'crypto'
-import { getNotebook, createSource, sourceExistsByUrl, sourceExistsByContentHash } from '@/lib/store'
+import { getNotebook, createSource, sourceExistsByUrl, sourceExistsByContentHash, getSourceContentHashByFilename } from '@/lib/store'
 import { openrag } from '@/lib/openrag'
 import { updateNotebookFilter } from '@/lib/filters'
 import { err, mapSdkError } from '@/lib/errors'
@@ -40,35 +40,46 @@ export async function POST(req: Request, { params }: Ctx) {
     const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
     if (!text) return err(400, 'No text content found at URL.', 'EMPTY_CONTENT')
 
-    // Calculate content hash
     const contentHash = createHash('sha256').update(text, 'utf8').digest('hex')
-    
-    // Check if this exact content already exists in the notebook
-    const existingSource = sourceExistsByContentHash(notebookId, contentHash)
-    if (existingSource) {
-      return NextResponse.json(existingSource, { status: 200 })
-    }
 
-    const sourceId = `src_${uuid()}`
-    const hostname = new URL(url).hostname.replace(/[^\w.\-]/g, '_')
-    const openragFilename = `${sourceId}-${hostname}.txt`
-    const finalTitle = title || new URL(url).hostname
+    // In-notebook duplicate by content hash → return existing
+    const existingInNotebook = sourceExistsByContentHash(notebookId, contentHash)
+    if (existingInNotebook) return NextResponse.json(existingInNotebook, { status: 200 })
+
+    const parsedUrl = new URL(url)
+    const hostname = parsedUrl.hostname.replace(/[^\w.\-]/g, '_')
+    const pathSlug = parsedUrl.pathname
+      .replace(/\//g, '-').replace(/[^\w\-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
+    const openragFilename = pathSlug ? `${hostname}-${pathSlug}.txt` : `${hostname}.txt`
+    const finalTitle = title || parsedUrl.hostname
+
+    // Global filename collision check
+    const globalHash = getSourceContentHashByFilename(openragFilename)
+    if (globalHash !== null) {
+      if (globalHash !== contentHash) {
+        return err(409, `A document named "${openragFilename}" already exists with different content.`, 'DUPLICATE_SOURCE')
+      }
+      // Same content → share existing OpenRAG document
+      const source = createSource({ id: `src_${uuid()}`, notebookId, title: finalTitle, type: 'url', url, openragFilename, contentHash, createdAt: new Date().toISOString() })
+      await updateNotebookFilter(notebook.openragFilterId, notebookId)
+      return NextResponse.json(source, { status: 201 })
+    }
 
     const blob = new Blob([text], { type: 'text/plain' })
     const result = await openrag.documents.ingest({ file: blob, filename: openragFilename })
     await openrag.documents.waitForTask(result.task_id)
 
-    const source = createSource({ 
-      id: sourceId, 
-      notebookId, 
-      title: finalTitle, 
-      type: 'url', 
-      url, 
+    const source = createSource({
+      id: `src_${uuid()}`,
+      notebookId,
+      title: finalTitle,
+      type: 'url',
+      url,
       openragFilename,
       contentHash,
-      createdAt: new Date().toISOString() 
+      createdAt: new Date().toISOString()
     })
-    
+
     await updateNotebookFilter(notebook.openragFilterId, notebookId)
     return NextResponse.json(source, { status: 201 })
   } catch (e) {

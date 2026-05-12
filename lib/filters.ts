@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { openrag } from './openrag'
-import { getSources, getSource, getNotebook, updateNotebook, createSource, sourceExistsByFilename } from './store'
+import { getSources, getSource, getNotebook, updateNotebook, createSource, sourceExistsByFilename, getNotebookByFilterId } from './store'
 import type { SourceType } from './types'
 
 export const QUERY_LIMIT = 10
@@ -9,10 +9,8 @@ export const QUERY_SCORE_THRESHOLD = 0.3
 // In-memory lock to prevent concurrent filter updates for the same notebook
 const filterUpdateLocks = new Map<string, Promise<void>>()
 
-function buildFilterName(notebookId: string, notebookName: string): string {
-  const sanitized = notebookName.replace(/\s+/g, '-').replace(/[^\w\-]/g, '').toLowerCase().slice(0, 40)
-  const shortId = notebookId.replace(/^nb_/, '').slice(0, 8)
-  return `${sanitized}-${shortId}`
+function buildFilterName(notebookName: string): string {
+  return notebookName.replace(/\s+/g, '-').replace(/[^\w\-]/g, '').slice(0, 60) || 'notebook'
 }
 
 function buildQueryData(filenames: string[]) {
@@ -24,17 +22,22 @@ function buildQueryData(filenames: string[]) {
 }
 
 export async function createNotebookFilter(notebookId: string, notebookName: string): Promise<string> {
-  const filterName = buildFilterName(notebookId, notebookName)
+  const filterName = buildFilterName(notebookName)
 
   try {
     const existingFilters = await openrag.knowledgeFilters.search(filterName, 10)
     const matchingFilter = existingFilters.find(f => f.name === filterName)
 
     if (matchingFilter) {
+      const owner = getNotebookByFilterId(matchingFilter.id)
+      if (owner && owner.id !== notebookId) {
+        throw Object.assign(new Error(`A notebook named "${notebookName}" already exists. Choose a different name.`), { code: 'FILTER_NAME_CONFLICT' })
+      }
       console.log(`Found existing filter for notebook ${notebookId}: ${matchingFilter.id}`)
       return matchingFilter.id
     }
   } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'FILTER_NAME_CONFLICT') throw error
     console.error('Error searching for existing filter:', error)
   }
 
@@ -117,9 +120,9 @@ export async function importNotebookFilterSources(notebookId: string, filterId: 
     else if (lower.endsWith('.docx')) type = 'docx'
 
     const title = filename
-      .replace(/^src_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '')
       .replace(/\.(pdf|txt|csv|md|html|docx)$/i, '')
-      .replace(/_/g, ' ') || filename
+      .replace(/[_\-]+/g, ' ')
+      .trim() || filename
 
     createSource({
       id: `src_${uuid()}`,

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuid } from 'uuid'
 import { createHash } from 'crypto'
-import { getNotebook, createSource, sourceExistsByFilename, sourceExistsByContentHash } from '@/lib/store'
+import { getNotebook, createSource, sourceExistsByFilename, sourceExistsByContentHash, getSourceContentHashByFilename } from '@/lib/store'
 import { openrag } from '@/lib/openrag'
 import { updateNotebookFilter } from '@/lib/filters'
 import { err, mapSdkError } from '@/lib/errors'
@@ -58,21 +58,39 @@ export async function POST(req: Request, { params }: Ctx) {
     const buffer = await file.arrayBuffer()
     const contentHash = createHash('sha256').update(Buffer.from(buffer)).digest('hex')
 
-    const existingSource = sourceExistsByContentHash(notebookId, contentHash)
-    if (existingSource) {
-      return NextResponse.json(existingSource, { status: 200 })
+    // In-notebook duplicate by content hash → return existing
+    const existingInNotebook = sourceExistsByContentHash(notebookId, contentHash)
+    if (existingInNotebook) return NextResponse.json(existingInNotebook, { status: 200 })
+
+    const sanitizedName = file.name.replace(/[^\w.\-]/g, '_')
+    const openragFilename = sanitizedName
+
+    // In-notebook duplicate by filename
+    if (sourceExistsByFilename(notebookId, openragFilename)) {
+      return err(409, `A source named "${file.name}" already exists in this notebook.`, 'DUPLICATE_SOURCE')
     }
 
-    const sourceId = `src_${uuid()}`
-    const sanitizedName = file.name.replace(/[^\w.\-]/g, '_')
-    const openragFilename = `${sourceId}-${sanitizedName}`
-
-    if (sourceExistsByFilename(notebookId, openragFilename)) {
-      return err(409, 'A source with this filename already exists in the notebook.', 'DUPLICATE_SOURCE')
+    // Global filename collision check
+    const globalHash = getSourceContentHashByFilename(openragFilename)
+    if (globalHash !== null) {
+      if (globalHash !== contentHash) {
+        return err(409, `A document named "${file.name}" already exists with different content. Rename the file to add it separately.`, 'DUPLICATE_SOURCE')
+      }
+      // Same content in another notebook → share: create local record, skip OpenRAG upload
+      const source = createSource({
+        id: `src_${uuid()}`,
+        notebookId,
+        title,
+        type: sourceTypeFromExt(ext),
+        openragFilename,
+        contentHash,
+        createdAt: new Date().toISOString(),
+      })
+      await updateNotebookFilter(notebook.openragFilterId, notebookId)
+      return NextResponse.json(source, { status: 201 })
     }
 
     const blob = new Blob([buffer], { type: MIME_TYPES[ext] ?? 'application/octet-stream' })
-
     const result = await openrag.documents.ingest({ file: blob, filename: openragFilename })
 
     const taskStatus = await openrag.documents.waitForTask(result.task_id)
@@ -81,7 +99,7 @@ export async function POST(req: Request, { params }: Ctx) {
     }
 
     const source = createSource({
-      id: sourceId,
+      id: `src_${uuid()}`,
       notebookId,
       title,
       type: sourceTypeFromExt(ext),

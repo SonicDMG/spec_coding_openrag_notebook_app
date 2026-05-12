@@ -91,6 +91,27 @@ export function sourceExistsByContentHash(notebookId: string, contentHash: strin
   ).get(notebookId, contentHash) as Source | undefined
 }
 
+export function sourceExistsByFilenameGlobal(openragFilename: string): boolean {
+  const row = db().prepare('SELECT 1 FROM sources WHERE openrag_filename = ?').get(openragFilename)
+  return !!row
+}
+
+export function getSourceContentHashByFilename(openragFilename: string): string | null {
+  const row = db().prepare('SELECT content_hash FROM sources WHERE openrag_filename = ? LIMIT 1').get(openragFilename) as { content_hash: string | null } | undefined
+  return row?.content_hash ?? null
+}
+
+export function getFilenameRefCount(openragFilename: string): number {
+  const row = db().prepare('SELECT COUNT(*) as c FROM sources WHERE openrag_filename = ?').get(openragFilename) as { c: number }
+  return row.c
+}
+
+export function getNotebookByFilterId(filterId: string): Notebook | undefined {
+  return db().prepare(
+    'SELECT id, name, openrag_filter_id as openragFilterId, openrag_chat_id as openragChatId, created_at as createdAt FROM notebooks WHERE openrag_filter_id = ?'
+  ).get(filterId) as Notebook | undefined
+}
+
 // ── Notes ──────────────────────────────────────────────────────────────────
 
 function deserialiseNote(row: Record<string, unknown>): Note {

@@ -20,26 +20,23 @@ export async function POST(req: Request, { params }: Ctx) {
   const title = json?.title?.trim() || `Text source ${new Date().toLocaleString()}`
 
   try {
-    // Calculate content hash
     const contentHash = createHash('sha256').update(body, 'utf8').digest('hex')
-    
-    // Check if this exact content already exists in the notebook
-    const existingSource = sourceExistsByContentHash(notebookId, contentHash)
-    if (existingSource) {
-      return NextResponse.json(existingSource, { status: 200 })
-    }
 
-    const sourceId = `src_${uuid()}`
-    const sanitizedTitle = title.replace(/[^\w\-]/g, '_').replace(/_+/g, '_').slice(0, 60)
-    const openragFilename = `${sourceId}-${sanitizedTitle}.txt`
+    // In-notebook duplicate by content hash → return existing
+    const existingSource = sourceExistsByContentHash(notebookId, contentHash)
+    if (existingSource) return NextResponse.json(existingSource, { status: 200 })
+
+    // Use title + content hash prefix to ensure globally unique filenames for text
+    const sanitizedTitle = title.replace(/[^\w\-]/g, '_').replace(/_+/g, '_').slice(0, 50)
+    const openragFilename = `${sanitizedTitle}-${contentHash.slice(0, 8)}.txt`
 
     const blob = new Blob([body], { type: 'text/plain' })
     const result = await openrag.documents.ingest({ file: blob, filename: openragFilename })
     await openrag.documents.waitForTask(result.task_id)
 
-    const source = createSource({ 
-      id: sourceId, 
-      notebookId, 
+    const source = createSource({
+      id: `src_${uuid()}`,
+      notebookId,
       title, 
       type: 'text', 
       openragFilename,

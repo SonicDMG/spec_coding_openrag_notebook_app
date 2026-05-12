@@ -46,6 +46,9 @@ export async function POST(req: Request) {
     importedCount = await importNotebookFilterSources(id, filterId)
     return NextResponse.json({ ...notebook, sourceCount: importedCount, noteCount: 0 }, { status: 201 })
   } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'FILTER_NAME_CONFLICT') {
+      return err(409, (e as Error).message, 'FILTER_NAME_CONFLICT')
+    }
     return mapSdkError(e)
   }
 }
