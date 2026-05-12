@@ -17,6 +17,7 @@ interface Props {
   pendingGeneration?: { mode: 'overview' | 'table' | 'mindmap'; prompt?: string } | null
   onPendingGenerationDone?: () => void
   onNotesChanged: () => void
+  newNoteId?: string | null
 }
 
 type GenerateMode = null | 'overview' | 'table' | 'mindmap'
@@ -28,7 +29,7 @@ type PendingNote = {
   errorMsg?: string
 }
 
-export default function NotesPanel({ notebookId, notes, sources, selectedIds, addMessage, updateMessage, pendingGeneration, onPendingGenerationDone, onNotesChanged }: Props) {
+export default function NotesPanel({ notebookId, notes, sources, selectedIds, addMessage, updateMessage, pendingGeneration, onPendingGenerationDone, onNotesChanged, newNoteId }: Props) {
   const [openNote, setOpenNote] = useState<Note | null>(null)
   const [noteExpanded, setNoteExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -484,7 +485,7 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
             {notes.map(n => (
               <li
                 key={n.id}
-                className={`note-type-${n.type} fun-note-row px-3 py-2.5 hover:bg-muted/40 cursor-pointer group flex items-center gap-2 ${selectMode && selectedNoteIds.has(n.id) ? 'bg-muted/60' : ''}`}
+                className={`note-type-${n.type} fun-note-row px-3 py-2.5 hover:bg-muted/40 cursor-pointer group flex items-center gap-2 ${selectMode && selectedNoteIds.has(n.id) ? 'bg-muted/60' : ''} ${newNoteId === n.id ? 'note-new-item' : ''}`}
                 onClick={selectMode
                   ? () => toggleNoteSelection(n.id)
                   : () => { setOpenNote(n); requestAnimationFrame(() => setNoteExpanded(true)) }}

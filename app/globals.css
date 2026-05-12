@@ -86,6 +86,24 @@
 /* React Flow overrides */
 .react-flow__attribution { display: none; }
 
+/* ── Save-to-note flying animation ──────────────────────────────────────── */
+
+@keyframes note-fly {
+  0%   { opacity: 1; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--fly-dx), var(--fly-dy)) scale(0.45); }
+}
+.note-flying-ghost {
+  animation: note-fly 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes note-slide-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.note-new-item {
+  animation: note-slide-in 0.35s ease-out;
+}
+
 /* ── Fun theme — static rainbow ─────────────────────────────────────────── */
 
 /* Panel section tints */

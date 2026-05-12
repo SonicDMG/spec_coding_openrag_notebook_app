@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Markdown from '@/components/Markdown'
 import { Send, BookmarkPlus, AlertCircle, FileText, Globe, AlignLeft, Table, ChevronDown, ChevronUp, Search, Sparkles, Network } from 'lucide-react'
-import type { Source, ChatMessage, OpenRAGSource } from '@/lib/types'
+import type { Source, ChatMessage, OpenRAGSource, Note } from '@/lib/types'
 
 interface Props {
   notebookId: string
@@ -14,7 +14,7 @@ interface Props {
   addMessage: (msg: Partial<ChatMessage> & { role: 'user' | 'assistant' }) => void
   updateMessage: (id: string, updates: Partial<ChatMessage>) => void
   initialChatId?: string
-  onNoteSaved: () => void
+  onNoteSaved: (note: Note, sourceRect: DOMRect) => void
   onSuggestionClick?: (suggestion: { action: string; mode?: string; prompt?: string }) => void
 }
 
@@ -204,7 +204,7 @@ export default function ChatPanel({ notebookId, sources, selectedIds, messages, 
     }
   }
 
-  async function saveAsNote(msg: ChatMessage, question: string, idx: number) {
+  async function saveAsNote(msg: ChatMessage, question: string, idx: number, btn?: HTMLElement) {
     const title = question.slice(0, 60)
     const res = await fetch(`/api/notebooks/${notebookId}/notes`, {
       method: 'POST',
@@ -212,10 +212,10 @@ export default function ChatPanel({ notebookId, sources, selectedIds, messages, 
       body: JSON.stringify({ type: 'chat', title, body: msg.content }),
     })
     if (res.ok) {
+      const note: Note = await res.json()
       setMessages(prev => prev.map((m, i) => i === idx ? { ...m, saved: true } : m))
-      // Best-effort: persist saved flag (no-op if message isn't in DB yet)
       fetch(`/api/notebooks/${notebookId}/messages/${msg.id}`, { method: 'PATCH' }).catch(() => {})
-      onNoteSaved()
+      onNoteSaved(note, btn?.getBoundingClientRect() ?? new DOMRect())
     }
   }
 
@@ -281,7 +281,7 @@ export default function ChatPanel({ notebookId, sources, selectedIds, messages, 
                     <SourceList openragSources={msg.sources} appSources={sources} />
                   )}
                   {msg.content && !streaming && (
-                    <button onClick={() => saveAsNote(msg, messages[idx - 1]?.content ?? 'Chat response', idx)}
+                    <button onClick={e => saveAsNote(msg, messages[idx - 1]?.content ?? 'Chat response', idx, e.currentTarget)}
                       disabled={msg.saved}
                       className="note-type-chat fun-save-btn flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed px-1">
                       <BookmarkPlus size={12} />

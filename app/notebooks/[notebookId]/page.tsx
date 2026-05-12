@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Menu, X } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -30,6 +30,9 @@ export default function NotebookPage() {
   const [activePanel, setActivePanel] = useState<Panel>('chat')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [newNoteId, setNewNoteId] = useState<string | null>(null)
+  const [flyingNote, setFlyingNote] = useState<{ title: string; left: number; top: number; dx: number; dy: number } | null>(null)
+  const notesPanelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     load()
@@ -116,6 +119,24 @@ export default function NotebookPage() {
     }
   }
 
+  function handleNoteSaved(note: Note, sourceRect: DOMRect) {
+    setNotes(prev => [note, ...prev])
+    setNewNoteId(note.id)
+    setTimeout(() => setNewNoteId(null), 800)
+
+    if (notesPanelRef.current) {
+      const dest = notesPanelRef.current.getBoundingClientRect()
+      setFlyingNote({
+        title: note.title,
+        left: sourceRect.left,
+        top: sourceRect.top,
+        dx: dest.left + 24 - sourceRect.left,
+        dy: dest.top + 80 - sourceRect.top,
+      })
+      setTimeout(() => setFlyingNote(null), 600)
+    }
+  }
+
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -139,6 +160,21 @@ export default function NotebookPage() {
 
   return (
     <div className="h-screen flex flex-col">
+      {flyingNote && (
+        <div
+          className="note-flying-ghost note-type-chat fixed z-[200] pointer-events-none bg-card border rounded-lg px-3 py-2 shadow-lg text-xs font-medium text-foreground max-w-[220px] truncate"
+          style={{
+            left: flyingNote.left,
+            top: flyingNote.top,
+            borderLeftWidth: '3px',
+            borderLeftColor: 'hsl(var(--note-color))',
+            '--fly-dx': `${flyingNote.dx}px`,
+            '--fly-dy': `${flyingNote.dy}px`,
+          } as React.CSSProperties}
+        >
+          {flyingNote.title}
+        </div>
+      )}
       {/* Header */}
       <header className="border-b bg-card px-4 py-3 flex items-center gap-3">
         <button
@@ -211,11 +247,11 @@ export default function NotebookPage() {
               addMessage={addMessage}
               updateMessage={updateMessage}
               initialChatId={notebook.openragChatId}
-              onNoteSaved={load}
+              onNoteSaved={handleNoteSaved}
               onSuggestionClick={handleSuggestionClick}
             />
           </div>
-          <div data-panel="notes" className="border-l bg-card overflow-hidden">
+          <div ref={notesPanelRef} data-panel="notes" className="border-l bg-card overflow-hidden">
             <NotesPanel
               notebookId={notebookId}
               notes={notes}
@@ -226,6 +262,7 @@ export default function NotebookPage() {
               pendingGeneration={pendingGeneration}
               onPendingGenerationDone={() => setPendingGeneration(null)}
               onNotesChanged={load}
+              newNoteId={newNoteId}
             />
           </div>
         </div>
@@ -255,7 +292,7 @@ export default function NotebookPage() {
                 addMessage={addMessage}
                 updateMessage={updateMessage}
                 initialChatId={notebook.openragChatId}
-                onNoteSaved={load}
+                onNoteSaved={handleNoteSaved}
                 onSuggestionClick={handleSuggestionClick}
               />
             </div>
