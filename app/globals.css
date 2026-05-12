@@ -114,6 +114,16 @@
 .dark .note-type-chat,
 .dark .note-type-manual   { --note-color: 210 80% 65%; }
 
+/* Save-to-note link in chat */
+.theme-fun .fun-save-btn,
+.dark .fun-save-btn {
+  color: hsl(var(--note-color));
+}
+.theme-fun .fun-save-btn:hover:not(:disabled),
+.dark .fun-save-btn:hover:not(:disabled) {
+  color: hsl(var(--note-color) / 0.75);
+}
+
 /* Generate buttons */
 .theme-fun .fun-note-btn,
 .dark .fun-note-btn {

@@ -283,7 +283,7 @@ export default function ChatPanel({ notebookId, sources, selectedIds, messages, 
                   {msg.content && !streaming && (
                     <button onClick={() => saveAsNote(msg, messages[idx - 1]?.content ?? 'Chat response', idx)}
                       disabled={msg.saved}
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed px-1">
+                      className="note-type-chat fun-save-btn flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed px-1">
                       <BookmarkPlus size={12} />
                       {msg.saved ? 'Saved' : 'Save to note'}
                     </button>
