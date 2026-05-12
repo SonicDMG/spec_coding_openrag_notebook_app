@@ -66,41 +66,56 @@ function computeLayout(nodes: MindMapNode[], edges: MindMapEdge[]) {
   return { positions, levels }
 }
 
-const LEVEL_STYLES: React.CSSProperties[] = [
-  // 0 — central
-  { background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', border: 'none', borderRadius: 8, fontWeight: 700, padding: '10px 18px', fontSize: 14 },
-  // 1 — category
-  { background: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))', border: '1.5px solid hsl(var(--border))', borderRadius: 7, fontWeight: 600, padding: '7px 14px', fontSize: 13 },
-  // 2 — item
-  { background: 'hsl(var(--card))', color: 'hsl(var(--card-foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 12px', fontSize: 12 },
-  // 3+ — detail
-  { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))', border: '1px solid hsl(var(--border))', borderRadius: 5, padding: '4px 10px', fontSize: 11 },
-]
+// One CSS variable name per hierarchy level
+const LEVEL_COLOR_VARS = ['--note-color', '--node-color-1', '--node-color-2', '--node-color-3']
+
+function colorVar(level: number, alpha?: number): string {
+  const v = `var(${LEVEL_COLOR_VARS[Math.min(level, LEVEL_COLOR_VARS.length - 1)]})`
+  return alpha !== undefined ? `hsl(${v} / ${alpha})` : `hsl(${v})`
+}
+
+const LEVEL_STYLES = (level: number): React.CSSProperties => {
+  const styles: React.CSSProperties[] = [
+    // 0 — root: solid fill
+    { background: colorVar(0), color: 'hsl(var(--primary-foreground))', border: 'none', borderRadius: 8, fontWeight: 700, padding: '10px 18px', fontSize: 14 },
+    // 1 — category: tinted bg, colored text
+    { background: colorVar(1, 0.12), color: colorVar(1), border: `1.5px solid ${colorVar(1, 0.4)}`, borderRadius: 7, fontWeight: 600, padding: '7px 14px', fontSize: 13 },
+    // 2 — item: subtle tint
+    { background: colorVar(2, 0.08), color: colorVar(2), border: `1px solid ${colorVar(2, 0.35)}`, borderRadius: 6, padding: '6px 12px', fontSize: 12 },
+    // 3+ — detail: faintest tint
+    { background: colorVar(3, 0.06), color: colorVar(3), border: `1px solid ${colorVar(3, 0.28)}`, borderRadius: 5, padding: '4px 10px', fontSize: 11 },
+  ]
+  return styles[Math.min(level, styles.length - 1)]
+}
 
 export default function MindMapRenderer({ data }: Props) {
   const layout = useMemo(() => computeLayout(data.nodes, data.edges), [data.nodes, data.edges])
 
-  const nodes: Node[] = useMemo(() => {
-    if (!layout) return []
+  const { nodes, edges } = useMemo(() => {
+    if (!layout) return { nodes: [], edges: [] }
     const { positions, levels } = layout
-    return data.nodes.map(n => {
+
+    const nodes: Node[] = data.nodes.map(n => {
       const pos = positions.get(n.id) ?? { x: 0, y: 0 }
       const level = levels.get(n.id) ?? 0
-      const style = LEVEL_STYLES[Math.min(level, LEVEL_STYLES.length - 1)]
-      return { id: n.id, data: { label: n.label }, position: pos, style }
+      return { id: n.id, data: { label: n.label }, position: pos, style: LEVEL_STYLES(level) }
     })
-  }, [data.nodes, layout])
 
-  const edges: Edge[] = useMemo(() =>
-    data.edges.map((e, i) => ({
-      id: `e${i}`,
-      source: e.from,
-      target: e.to,
-      type: 'smoothstep',
-      label: e.label,
-      labelStyle: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' },
-      style: { stroke: 'hsl(var(--border))' },
-    })), [data.edges])
+    const edges: Edge[] = data.edges.map((e, i) => {
+      const srcLevel = levels.get(e.from) ?? 0
+      return {
+        id: `e${i}`,
+        source: e.from,
+        target: e.to,
+        type: 'smoothstep',
+        label: e.label,
+        labelStyle: { fontSize: 10, fill: colorVar(srcLevel, 0.65) },
+        style: { stroke: colorVar(srcLevel, 0.4) },
+      }
+    })
+
+    return { nodes, edges }
+  }, [data.nodes, data.edges, layout])
 
   return (
     <div className="w-full h-full rounded-lg border overflow-hidden">

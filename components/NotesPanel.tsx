@@ -302,7 +302,7 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
             <Minimize2 size={13} />
           </button>
         </div>
-        <div className={`flex-1 min-h-0 ${openNote.type === 'mindmap' ? 'overflow-hidden' : 'overflow-y-auto p-4'}`}>
+        <div className={`flex-1 min-h-0 ${openNote.type === 'mindmap' ? 'note-type-mindmap overflow-hidden' : 'overflow-y-auto p-4'}`}>
           {error && <p className="text-xs text-destructive mb-2 px-4 pt-4">{error}</p>}
           {editing ? (
             <textarea value={editBody} onChange={e => setEditBody(e.target.value)} rows={15}
@@ -385,15 +385,15 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
         {!noSources && !selectMode && (
           <div className="flex flex-wrap gap-1">
             <button onClick={() => setGenerateMode('overview')} disabled={noneSelected}
-              className="flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-muted disabled:opacity-40">
+              className="note-type-overview fun-note-btn flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-muted disabled:opacity-40">
               <Sparkles size={11} /> Overview
             </button>
             <button onClick={() => setGenerateMode('table')} disabled={noneSelected}
-              className="flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-muted disabled:opacity-40">
+              className="note-type-table fun-note-btn flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-muted disabled:opacity-40">
               <Table2 size={11} /> Table
             </button>
             <button onClick={() => setGenerateMode('mindmap')} disabled={noneSelected}
-              className="flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-muted disabled:opacity-40">
+              className="note-type-mindmap fun-note-btn flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-muted disabled:opacity-40">
               <Network size={11} /> Mind map
             </button>
           </div>
@@ -455,13 +455,13 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
         ) : (
           <ul className="divide-y">
             {pendingNotes.map(p => (
-              <li key={p.id} className="px-3 py-2.5 flex items-center gap-2">
+              <li key={p.id} className={`note-type-${p.type} fun-note-row px-3 py-2.5 flex items-center gap-2`}>
                 {p.status === 'generating' ? (
                   <>
-                    <Loader2 size={12} className="animate-spin text-muted-foreground shrink-0" />
+                    <Loader2 size={12} className="fun-pending-spinner animate-spin text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="h-2.5 bg-muted rounded animate-pulse w-3/4" />
-                      <div className="h-2 bg-muted rounded animate-pulse w-1/2" />
+                      <div className="fun-pending-bar h-2.5 bg-muted rounded animate-pulse w-3/4" />
+                      <div className="fun-pending-bar h-2 bg-muted rounded animate-pulse w-1/2" />
                     </div>
                     <span className="text-[10px] text-muted-foreground shrink-0 capitalize">
                       {p.type === 'mindmap' ? 'mind map' : p.type}
@@ -484,7 +484,7 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
             {notes.map(n => (
               <li
                 key={n.id}
-                className={`px-3 py-2.5 hover:bg-muted/40 cursor-pointer group flex items-center gap-2 ${selectMode && selectedNoteIds.has(n.id) ? 'bg-muted/60' : ''}`}
+                className={`note-type-${n.type} fun-note-row px-3 py-2.5 hover:bg-muted/40 cursor-pointer group flex items-center gap-2 ${selectMode && selectedNoteIds.has(n.id) ? 'bg-muted/60' : ''}`}
                 onClick={selectMode
                   ? () => toggleNoteSelection(n.id)
                   : () => { setOpenNote(n); requestAnimationFrame(() => setNoteExpanded(true)) }}

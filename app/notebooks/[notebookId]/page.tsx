@@ -191,7 +191,7 @@ export default function NotebookPage() {
       <div className="flex-1 overflow-hidden">
         {/* Desktop: three columns */}
         <div className="hidden lg:grid lg:grid-cols-[300px_1fr_320px] h-full">
-          <div className="border-r bg-card overflow-hidden">
+          <div data-panel="sources" className="border-r bg-card overflow-hidden">
             <SourcesPanel
               notebookId={notebookId}
               sources={sources}
@@ -201,7 +201,7 @@ export default function NotebookPage() {
               onSourceDeleted={refreshSources}
             />
           </div>
-          <div className="bg-background overflow-hidden">
+          <div data-panel="chat" className="bg-background overflow-hidden">
             <ChatPanel
               notebookId={notebookId}
               sources={sources}
@@ -215,7 +215,7 @@ export default function NotebookPage() {
               onSuggestionClick={handleSuggestionClick}
             />
           </div>
-          <div className="border-l bg-card overflow-hidden">
+          <div data-panel="notes" className="border-l bg-card overflow-hidden">
             <NotesPanel
               notebookId={notebookId}
               notes={notes}
@@ -233,7 +233,7 @@ export default function NotebookPage() {
         {/* Mobile: single panel */}
         <div className="lg:hidden h-full">
           {activePanel === 'sources' && (
-            <div className="h-full bg-card">
+            <div data-panel="sources" className="h-full bg-card">
               <SourcesPanel
                 notebookId={notebookId}
                 sources={sources}
@@ -245,7 +245,7 @@ export default function NotebookPage() {
             </div>
           )}
           {activePanel === 'chat' && (
-            <div className="h-full bg-background">
+            <div data-panel="chat" className="h-full bg-background">
               <ChatPanel
                 notebookId={notebookId}
                 sources={sources}
@@ -261,7 +261,7 @@ export default function NotebookPage() {
             </div>
           )}
           {activePanel === 'notes' && (
-            <div className="h-full bg-card">
+            <div data-panel="notes" className="h-full bg-card">
               <NotesPanel
                 notebookId={notebookId}
                 notes={notes}

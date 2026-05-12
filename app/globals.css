@@ -2,18 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Register --fun-hue so it can be smoothly animated */
-@property --fun-hue {
-  syntax: '<number>';
-  inherits: true;
-  initial-value: 0;
-}
-
-@keyframes fun-rainbow {
-  from { --fun-hue: 0; }
-  to   { --fun-hue: 360; }
-}
-
 @layer base {
   :root {
     --background: 0 0% 98%;
@@ -58,16 +46,14 @@
   }
 
   .theme-fun {
-    animation: fun-rainbow 8s linear infinite;
-
     --background: 260 30% 96%;
     --foreground: 270 45% 14%;
     --card: 265 40% 99%;
     --card-foreground: 270 45% 14%;
-    --border: var(--fun-hue) 70% 75%;
+    --border: 280 50% 82%;
     --input: 265 40% 82%;
-    --ring: var(--fun-hue) 90% 58%;
-    --primary: var(--fun-hue) 90% 58%;
+    --ring: 270 75% 58%;
+    --primary: 270 75% 58%;
     --primary-foreground: 0 0% 100%;
     --secondary: 300 40% 92%;
     --secondary-foreground: 270 45% 14%;
@@ -99,3 +85,63 @@
 
 /* React Flow overrides */
 .react-flow__attribution { display: none; }
+
+/* ── Fun theme — static rainbow ─────────────────────────────────────────── */
+
+/* Panel section tints */
+.theme-fun [data-panel="sources"] { background-color: hsl(28 100% 97%); }
+.theme-fun [data-panel="chat"]    { background-color: hsl(172 65% 96%); }
+.theme-fun [data-panel="notes"]   { background-color: hsl(260 80% 97%); }
+
+/* Per-type color tokens — light theme defaults (used by MindMapRenderer in all themes) */
+.note-type-overview { --note-color: 38 88% 50%; }
+.note-type-table    { --note-color: 162 65% 38%; }
+.note-type-mindmap  { --note-color: 270 75% 58%; --node-color-1: 210 78% 52%; --node-color-2: 162 65% 38%; --node-color-3: 38 88% 50%; }
+.note-type-chat,
+.note-type-manual   { --note-color: 210 78% 52%; }
+
+/* Per-type color tokens — fun theme (lighter bg needs darker colors) */
+.theme-fun .note-type-overview { --note-color: 38 88% 50%; }
+.theme-fun .note-type-table    { --note-color: 162 65% 38%; }
+.theme-fun .note-type-mindmap  { --note-color: 280 68% 56%; --node-color-1: 210 78% 52%; --node-color-2: 162 65% 38%; --node-color-3: 38 88% 50%; }
+.theme-fun .note-type-chat,
+.theme-fun .note-type-manual   { --note-color: 210 78% 52%; }
+
+/* Per-type color tokens — dark theme (dark bg needs brighter colors) */
+.dark .note-type-overview { --note-color: 38 90% 60%; }
+.dark .note-type-table    { --note-color: 162 60% 48%; }
+.dark .note-type-mindmap  { --note-color: 280 70% 68%; --node-color-1: 210 80% 65%; --node-color-2: 162 60% 48%; --node-color-3: 38 90% 60%; }
+.dark .note-type-chat,
+.dark .note-type-manual   { --note-color: 210 80% 65%; }
+
+/* Generate buttons */
+.theme-fun .fun-note-btn,
+.dark .fun-note-btn {
+  color: hsl(var(--note-color));
+  background-color: hsl(var(--note-color) / 0.10);
+  border-color: hsl(var(--note-color) / 0.35);
+}
+.theme-fun .fun-note-btn:hover:not(:disabled),
+.dark .fun-note-btn:hover:not(:disabled) {
+  background-color: hsl(var(--note-color) / 0.20);
+}
+
+/* Note list rows */
+.theme-fun .fun-note-row,
+.dark .fun-note-row {
+  border-left: 3px solid hsl(var(--note-color) / 0.55);
+}
+.theme-fun .fun-note-row:hover,
+.dark .fun-note-row:hover {
+  background-color: hsl(var(--note-color) / 0.07);
+}
+
+/* Pending skeleton bars and spinner */
+.theme-fun .fun-note-row .fun-pending-bar,
+.dark .fun-note-row .fun-pending-bar {
+  background-color: hsl(var(--note-color) / 0.22);
+}
+.theme-fun .fun-note-row .fun-pending-spinner,
+.dark .fun-note-row .fun-pending-spinner {
+  color: hsl(var(--note-color));
+}
