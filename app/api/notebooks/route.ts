@@ -43,7 +43,8 @@ export async function POST(req: Request) {
 
     filterId = await createNotebookFilter(id, name)
     const notebook = createNotebook({ id, name, openragFilterId: filterId, createdAt: new Date().toISOString() })
-    return NextResponse.json({ ...notebook, sourceCount: 0, noteCount: 0 }, { status: 201 })
+    importedCount = await importNotebookFilterSources(id, filterId)
+    return NextResponse.json({ ...notebook, sourceCount: importedCount, noteCount: 0 }, { status: 201 })
   } catch (e) {
     return mapSdkError(e)
   }

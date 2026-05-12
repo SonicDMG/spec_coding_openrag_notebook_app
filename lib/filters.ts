@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { openrag } from './openrag'
-import { getSources, getSource, getNotebook, updateNotebook, createSource } from './store'
+import { getSources, getSource, getNotebook, updateNotebook, createSource, sourceExistsByFilename } from './store'
 import type { SourceType } from './types'
 
 export const QUERY_LIMIT = 10
@@ -106,6 +106,8 @@ export async function importNotebookFilterSources(notebookId: string, filterId: 
   let count = 0
 
   for (const filename of filenames) {
+    if (sourceExistsByFilename(notebookId, filename)) continue
+
     const lower = filename.toLowerCase()
     let type: SourceType = 'txt'
     if (lower.endsWith('.pdf')) type = 'pdf'

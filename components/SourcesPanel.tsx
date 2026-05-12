@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
-import { FileText, Globe, AlignLeft, Table, Trash2, Plus, X, Search, CheckSquare, Square, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { FileText, Globe, AlignLeft, Table, Trash2, Plus, X, Search, CheckSquare, Square, Loader2, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Source } from '@/lib/types'
 import { showError } from './ErrorToast'
 
@@ -42,6 +42,7 @@ export function SourcesPanel({
   const [urlTitle, setUrlTitle] = useState('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadQueue, setUploadQueue] = useState<UploadTask[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -146,6 +147,17 @@ export function SourcesPanel({
     finally { setLoading(false) }
   }
 
+  async function syncSources() {
+    setSyncing(true)
+    try {
+      const res = await fetch(`/api/notebooks/${notebookId}/sources/sync`, { method: 'POST' })
+      if (!res.ok) { showError('Failed to sync sources.'); return }
+      const { added } = await res.json()
+      if (added > 0) onSourceAdded()
+    } catch { showError('Failed to sync sources.') }
+    finally { setSyncing(false) }
+  }
+
   return (
     <div className="flex flex-col h-full">
 
@@ -153,6 +165,14 @@ export function SourcesPanel({
       <div className="p-3 border-b flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sources</span>
+          <button
+            onClick={syncSources}
+            disabled={syncing}
+            title="Sync sources from OpenRAG filter"
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50"
+          >
+            <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
+          </button>
           {selectedCount > 0 && (
             <span className="text-[10px] bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 font-medium">
               {selectedCount}
