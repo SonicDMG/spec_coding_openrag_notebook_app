@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3'
 import { getDb } from './db'
-import type { Notebook, Source, Note, NoteType, SourceType, TableData, MindMapData } from './types'
+import type { Notebook, Source, Note, NoteType, SourceType, TableData, MindMapData, ChatMessage, OpenRAGSource } from './types'
 
 function db(): Database.Database { return getDb() }
 
@@ -8,13 +8,13 @@ function db(): Database.Database { return getDb() }
 
 export function getNotebooks(): Notebook[] {
   return db().prepare(
-    'SELECT id, name, openrag_filter_id as openragFilterId, created_at as createdAt FROM notebooks ORDER BY created_at DESC'
+    'SELECT id, name, openrag_filter_id as openragFilterId, openrag_chat_id as openragChatId, created_at as createdAt FROM notebooks ORDER BY created_at DESC'
   ).all() as Notebook[]
 }
 
 export function getNotebook(id: string): Notebook | undefined {
   return db().prepare(
-    'SELECT id, name, openrag_filter_id as openragFilterId, created_at as createdAt FROM notebooks WHERE id = ?'
+    'SELECT id, name, openrag_filter_id as openragFilterId, openrag_chat_id as openragChatId, created_at as createdAt FROM notebooks WHERE id = ?'
   ).get(id) as Notebook | undefined
 }
 
@@ -33,6 +33,10 @@ export function updateNotebook(id: string, patch: { name?: string; openragFilter
     db().prepare('UPDATE notebooks SET openrag_filter_id = ? WHERE id = ?').run(patch.openragFilterId, id)
   }
   return getNotebook(id)!
+}
+
+export function updateNotebookChatId(id: string, chatId: string): void {
+  db().prepare('UPDATE notebooks SET openrag_chat_id = ? WHERE id = ?').run(chatId, id)
 }
 
 export function deleteNotebook(id: string): void {
@@ -148,6 +152,34 @@ export function updateNote(notebookId: string, noteId: string, patch: { title?: 
 
 export function deleteNote(notebookId: string, noteId: string): void {
   db().prepare('DELETE FROM notes WHERE notebook_id = ? AND id = ?').run(notebookId, noteId)
+}
+
+// ── Chat messages ──────────────────────────────────────────────────────────
+
+export function getChatMessages(notebookId: string): ChatMessage[] {
+  const rows = db().prepare(
+    'SELECT id, role, content, sources, saved FROM chat_messages WHERE notebook_id = ? ORDER BY created_at ASC'
+  ).all(notebookId) as Array<{ id: string; role: string; content: string; sources: string | null; saved: number }>
+  return rows.map(row => ({
+    id: row.id,
+    role: row.role as 'user' | 'assistant',
+    content: row.content,
+    sources: row.sources ? (JSON.parse(row.sources) as OpenRAGSource[]) : undefined,
+    saved: row.saved === 1,
+  }))
+}
+
+export function createChatMessage(data: {
+  id: string; notebookId: string; role: 'user' | 'assistant'; content: string;
+  sources?: OpenRAGSource[]; createdAt: string
+}): void {
+  db().prepare(
+    'INSERT OR IGNORE INTO chat_messages (id, notebook_id, role, content, sources, saved, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)'
+  ).run(data.id, data.notebookId, data.role, data.content, data.sources?.length ? JSON.stringify(data.sources) : null, data.createdAt)
+}
+
+export function markChatMessageSaved(notebookId: string, messageId: string): void {
+  db().prepare('UPDATE chat_messages SET saved = 1 WHERE notebook_id = ? AND id = ?').run(notebookId, messageId)
 }
 
 // ── Counts (for notebook summary) ─────────────────────────────────────────

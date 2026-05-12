@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Register --fun-hue so it can be smoothly animated */
+@property --fun-hue {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@keyframes fun-rainbow {
+  from { --fun-hue: 0; }
+  to   { --fun-hue: 360; }
+}
+
 @layer base {
   :root {
     --background: 0 0% 98%;
@@ -23,12 +35,67 @@
     --destructive-foreground: 0 0% 100%;
     --radius: 0.5rem;
   }
+
+  .dark {
+    --background: 225 6% 13%;
+    --foreground: 213 15% 92%;
+    --card: 225 5% 17%;
+    --card-foreground: 213 15% 92%;
+    --border: 207 5% 24%;
+    --input: 207 5% 24%;
+    --ring: 214 88% 74%;
+    --primary: 214 88% 74%;
+    --primary-foreground: 225 6% 13%;
+    --secondary: 225 5% 21%;
+    --secondary-foreground: 213 15% 92%;
+    --muted: 225 5% 21%;
+    --muted-foreground: 210 8% 62%;
+    --accent: 225 5% 21%;
+    --accent-foreground: 213 15% 92%;
+    --destructive: 0 62% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --radius: 0.5rem;
+  }
+
+  .theme-fun {
+    animation: fun-rainbow 8s linear infinite;
+
+    --background: 260 30% 96%;
+    --foreground: 270 45% 14%;
+    --card: 265 40% 99%;
+    --card-foreground: 270 45% 14%;
+    --border: var(--fun-hue) 70% 75%;
+    --input: 265 40% 82%;
+    --ring: var(--fun-hue) 90% 58%;
+    --primary: var(--fun-hue) 90% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 300 40% 92%;
+    --secondary-foreground: 270 45% 14%;
+    --muted: 265 20% 93%;
+    --muted-foreground: 265 20% 44%;
+    --accent: 330 80% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --radius: 1rem;
+  }
+
+  /* Global input/textarea background — prevents browser-default white in dark/fun themes */
+  input, textarea {
+    @apply bg-card text-foreground;
+  }
 }
 
 @layer base {
   * { @apply border-border; }
   body { @apply bg-background text-foreground; }
 }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
 
 /* React Flow overrides */
 .react-flow__attribution { display: none; }

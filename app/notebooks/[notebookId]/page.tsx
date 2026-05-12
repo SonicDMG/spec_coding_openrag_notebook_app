@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Menu, X } from 'lucide-react'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { SourcesPanel } from '@/components/SourcesPanel'
 import ChatPanel from '@/components/ChatPanel'
 import NotesPanel from '@/components/NotesPanel'
@@ -44,10 +45,11 @@ export default function NotebookPage() {
     setLoading(true)
     setError(null)
     try {
-      const [nbRes, srcRes, notesRes] = await Promise.all([
+      const [nbRes, srcRes, notesRes, msgsRes] = await Promise.all([
         fetch(`/api/notebooks/${notebookId}`),
         fetch(`/api/notebooks/${notebookId}/sources`),
         fetch(`/api/notebooks/${notebookId}/notes`),
+        fetch(`/api/notebooks/${notebookId}/messages`),
       ])
 
       if (!nbRes.ok) {
@@ -61,10 +63,12 @@ export default function NotebookPage() {
       const nb = await nbRes.json()
       const srcData = await srcRes.json()
       const notesData = await notesRes.json()
+      const msgsData = msgsRes.ok ? await msgsRes.json() : { messages: [] }
 
       setNotebook(nb)
       setSources(srcData.sources)
       setNotes(notesData.notes)
+      setMessages(msgsData.messages)
     } catch (e) {
       console.error('Load error:', e)
       setError(e instanceof Error ? e.message : 'Failed to load notebook')
@@ -146,6 +150,8 @@ export default function NotebookPage() {
         </button>
         <h1 className="text-lg font-semibold truncate flex-1">{notebook.name}</h1>
 
+        <ThemeToggle />
+
         {/* Mobile panel selector */}
         <div className="lg:hidden flex gap-1">
           <button
@@ -204,6 +210,7 @@ export default function NotebookPage() {
               setMessages={setMessages}
               addMessage={addMessage}
               updateMessage={updateMessage}
+              initialChatId={notebook.openragChatId}
               onNoteSaved={load}
               onSuggestionClick={handleSuggestionClick}
             />
@@ -247,6 +254,7 @@ export default function NotebookPage() {
                 setMessages={setMessages}
                 addMessage={addMessage}
                 updateMessage={updateMessage}
+                initialChatId={notebook.openragChatId}
                 onNoteSaved={load}
                 onSuggestionClick={handleSuggestionClick}
               />

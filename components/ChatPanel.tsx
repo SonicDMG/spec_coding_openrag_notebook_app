@@ -13,6 +13,7 @@ interface Props {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   addMessage: (msg: Partial<ChatMessage> & { role: 'user' | 'assistant' }) => void
   updateMessage: (id: string, updates: Partial<ChatMessage>) => void
+  initialChatId?: string
   onNoteSaved: () => void
   onSuggestionClick?: (suggestion: { action: string; mode?: string; prompt?: string }) => void
 }
@@ -116,10 +117,10 @@ function SourceList({ openragSources, appSources }: { openragSources: OpenRAGSou
   )
 }
 
-export default function ChatPanel({ notebookId, sources, selectedIds, messages, setMessages, addMessage, updateMessage, onNoteSaved, onSuggestionClick }: Props) {
+export default function ChatPanel({ notebookId, sources, selectedIds, messages, setMessages, addMessage, updateMessage, initialChatId, onNoteSaved, onSuggestionClick }: Props) {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
-  const [chatId, setChatId] = useState<string | undefined>()
+  const [chatId, setChatId] = useState<string | undefined>(initialChatId)
   const [error, setError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -147,7 +148,7 @@ export default function ChatPanel({ notebookId, sources, selectedIds, messages, 
       const res = await fetch(`/api/notebooks/${notebookId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, selectedSourceIds: Array.from(selectedIds), chatId }),
+        body: JSON.stringify({ message: msg, selectedSourceIds: Array.from(selectedIds), chatId, userMessageId: userId, assistantMessageId: assistantId }),
       })
 
       if (!res.ok) {
@@ -212,6 +213,8 @@ export default function ChatPanel({ notebookId, sources, selectedIds, messages, 
     })
     if (res.ok) {
       setMessages(prev => prev.map((m, i) => i === idx ? { ...m, saved: true } : m))
+      // Best-effort: persist saved flag (no-op if message isn't in DB yet)
+      fetch(`/api/notebooks/${notebookId}/messages/${msg.id}`, { method: 'PATCH' }).catch(() => {})
       onNoteSaved()
     }
   }
@@ -238,7 +241,7 @@ export default function ChatPanel({ notebookId, sources, selectedIds, messages, 
           return (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'user' ? (
-                <div className="max-w-[80%] bg-primary text-primary-foreground px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm">
+                <div className="max-w-[80%] bg-primary text-primary-foreground dark:bg-primary/20 dark:text-primary px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm">
                   {body}
                 </div>
               ) : (
@@ -266,7 +269,7 @@ export default function ChatPanel({ notebookId, sources, selectedIds, messages, 
                         const isCsv = src?.type === 'csv'
                         const Icon = isPdf ? FileText : isUrl ? Globe : isCsv ? Table : AlignLeft
                         return (
-                          <span key={fn} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border text-foreground text-[11px] font-medium">
+                          <span key={fn} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border text-foreground dark:text-muted-foreground text-[11px] font-medium">
                             <Icon size={10} className="text-muted-foreground shrink-0" />
                             <span className="truncate max-w-[150px]" title={title}>{title}</span>
                           </span>

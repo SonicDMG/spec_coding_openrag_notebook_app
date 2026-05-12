@@ -7,4 +7,5 @@ if (!process.env.OPENRAG_API_KEY) {
 export const openrag = new OpenRAGClient({
   apiKey: process.env.OPENRAG_API_KEY,
   baseUrl: process.env.OPENRAG_URL ?? 'http://localhost:3000',
+  timeout: 300_000,
 })

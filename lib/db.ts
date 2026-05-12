@@ -46,6 +46,16 @@ function migrate(db: Database.Database) {
       updated_at   TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id          TEXT PRIMARY KEY,
+      notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
+      role        TEXT NOT NULL,
+      content     TEXT NOT NULL,
+      sources     TEXT,
+      saved       INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS _migrations (
       id     TEXT PRIMARY KEY,
       ran_at TEXT NOT NULL
@@ -59,6 +69,15 @@ function migrate(db: Database.Database) {
   function markMigration(id: string): void {
     db.prepare('INSERT OR IGNORE INTO _migrations (id, ran_at) VALUES (?, ?)')
       .run(id, new Date().toISOString())
+  }
+
+  // Migration: Add openrag_chat_id to notebooks
+  if (!hasMigration('add_openrag_chat_id')) {
+    const nbCols = db.prepare("PRAGMA table_info(notebooks)").all() as Array<{ name: string }>
+    if (!nbCols.some(c => c.name === 'openrag_chat_id')) {
+      db.exec('ALTER TABLE notebooks ADD COLUMN openrag_chat_id TEXT')
+    }
+    markMigration('add_openrag_chat_id')
   }
 
   // Migration: Add content_hash column if it doesn't exist

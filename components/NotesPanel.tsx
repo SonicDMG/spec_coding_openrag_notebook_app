@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import Markdown from '@/components/Markdown'
-import { Plus, Trash2, Pencil, X, Check, Sparkles, ChevronLeft, Table2, Network, Minimize2 } from 'lucide-react'
+import { Plus, Trash2, Pencil, X, Check, Sparkles, ChevronLeft, Table2, Network, Minimize2, Loader2, AlertCircle } from 'lucide-react'
 import type { Note, Source, ChatMessage, ChatSuggestion } from '@/lib/types'
 
 const MindMapRenderer = lazy(() => import('./MindMapRenderer'))
@@ -21,6 +21,13 @@ interface Props {
 
 type GenerateMode = null | 'overview' | 'table' | 'mindmap'
 
+type PendingNote = {
+  id: string
+  type: 'overview' | 'table' | 'mindmap'
+  status: 'generating' | 'error'
+  errorMsg?: string
+}
+
 export default function NotesPanel({ notebookId, notes, sources, selectedIds, addMessage, updateMessage, pendingGeneration, onPendingGenerationDone, onNotesChanged }: Props) {
   const [openNote, setOpenNote] = useState<Note | null>(null)
   const [noteExpanded, setNoteExpanded] = useState(false)
@@ -35,9 +42,8 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set())
   const [generateMode, setGenerateMode] = useState<GenerateMode>(null)
   const [generatePrompt, setGeneratePrompt] = useState('')
-  const [generating, setGenerating] = useState(false)
+  const [pendingNotes, setPendingNotes] = useState<PendingNote[]>([])
   const [error, setError] = useState<string | null>(null)
-  const generatingRef = useRef(false)
 
   const noneSelected = selectedIds.size === 0
   const noSources = sources.length === 0
@@ -58,20 +64,14 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
 
   // Handle pending generation from ChatPanel suggestions
   useEffect(() => {
-    if (pendingGeneration && !generatingRef.current) {
-      setGenerateMode(pendingGeneration.mode)
-      setGeneratePrompt(pendingGeneration.prompt || '')
-      // Auto-trigger the generation
-      setTimeout(() => {
-        generate(pendingGeneration.mode, pendingGeneration.prompt)
-      }, 100)
+    if (pendingGeneration) {
+      generate(pendingGeneration.mode, pendingGeneration.prompt)
       onPendingGenerationDone?.()
     }
   }, [pendingGeneration])
 
   function closeNote() {
     if (noteExpanded) {
-      // Slide the overlay out first, then clear the note once the transition finishes
       setNoteExpanded(false)
       setTimeout(() => {
         setOpenNote(null)
@@ -147,16 +147,25 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
 
   async function generate(mode: GenerateMode, overridePrompt?: string) {
     if (!mode) return
-    if (generatingRef.current) return
-    generatingRef.current = true
-    setGenerating(true); setError(null)
+
+    const tempId = `pending_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    const capturedPrompt = overridePrompt ?? generatePrompt
+
+    // Optimistically add the card and dismiss the form immediately
+    setPendingNotes(prev => [...prev, { id: tempId, type: mode, status: 'generating' }])
+    setGenerateMode(null)
+    setGeneratePrompt('')
+    setError(null)
+
+    const removePending = () => setPendingNotes(prev => prev.filter(p => p.id !== tempId))
+    const failPending = (msg: string) => setPendingNotes(prev =>
+      prev.map(p => p.id === tempId ? { ...p, status: 'error' as const, errorMsg: msg } : p)
+    )
 
     const endpoint = mode === 'overview' ? 'overview' : mode === 'table' ? 'table' : 'mindmap'
-    const prompt = overridePrompt ?? generatePrompt
-    const extra = mode === 'table' ? { prompt } : mode === 'mindmap' ? { topic: prompt } : {}
+    const extra = mode === 'table' ? { prompt: capturedPrompt } : mode === 'mindmap' ? { topic: capturedPrompt } : {}
 
     const thinkingMsgId = `msg_${Date.now()}_thinking`
-    // Overview produces prose — stream it; table/mindmap produce JSON — skip raw content
     const isStreamable = mode === 'overview'
     let streamedContent = ''
 
@@ -169,9 +178,7 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
 
       if (!res.ok) {
         const d = await res.json()
-        setError(d.error)
-        generatingRef.current = false
-        setGenerating(false)
+        failPending(d.error ?? 'Generation failed')
         return
       }
 
@@ -197,7 +204,6 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
 
           if (eventType === 'status') {
             if (!hasThinkingMsg) {
-              // Start with empty content so the blinking cursor shows while generating
               addMessage({ id: thinkingMsgId, role: 'assistant', content: '' })
               hasThinkingMsg = true
             }
@@ -228,7 +234,6 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
 
             if (hasThinkingMsg) {
               if (isStreamable) {
-                // Streamed content is already in the message — just attach suggestions
                 updateMessage(thinkingMsgId, { suggestions })
               } else {
                 const completionMsg = `I've finished creating the ${typeLabel} "${note.title}". You can find it in the Notes panel.`
@@ -236,11 +241,10 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
               }
             }
 
-            setGenerateMode(null)
-            setGeneratePrompt('')
+            removePending()
             onNotesChanged()
           } else if (eventType === 'error') {
-            setError(data.error)
+            failPending(data.error ?? 'Generation failed')
             if (hasThinkingMsg) {
               updateMessage(thinkingMsgId, { content: `❌ Generation failed: ${data.error}` })
             } else {
@@ -250,11 +254,8 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
         }
       }
     } catch {
-      setError('Generation failed.')
+      failPending('Generation failed.')
       addMessage({ role: 'assistant', content: 'Generation failed. Please try again.' })
-    } finally {
-      generatingRef.current = false
-      setGenerating(false)
     }
   }
 
@@ -383,15 +384,15 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
         {/* Generate buttons — hidden in select mode */}
         {!noSources && !selectMode && (
           <div className="flex flex-wrap gap-1">
-            <button onClick={() => setGenerateMode('overview')} disabled={noneSelected || generating}
+            <button onClick={() => setGenerateMode('overview')} disabled={noneSelected}
               className="flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-muted disabled:opacity-40">
               <Sparkles size={11} /> Overview
             </button>
-            <button onClick={() => setGenerateMode('table')} disabled={noneSelected || generating}
+            <button onClick={() => setGenerateMode('table')} disabled={noneSelected}
               className="flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-muted disabled:opacity-40">
               <Table2 size={11} /> Table
             </button>
-            <button onClick={() => setGenerateMode('mindmap')} disabled={noneSelected || generating}
+            <button onClick={() => setGenerateMode('mindmap')} disabled={noneSelected}
               className="flex items-center gap-1 text-xs px-2 py-1 border rounded hover:bg-muted disabled:opacity-40">
               <Network size={11} /> Mind map
             </button>
@@ -420,9 +421,9 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
               className="w-full border rounded px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring" />
           )}
           <div className="flex gap-2">
-            <button onClick={() => generate(generateMode)} disabled={generating}
-              className="flex-1 bg-primary text-primary-foreground py-1.5 rounded text-xs font-medium disabled:opacity-50">
-              {generating ? 'Generating…' : `Generate ${generateMode}`}
+            <button onClick={() => generate(generateMode)}
+              className="flex-1 bg-primary text-primary-foreground py-1.5 rounded text-xs font-medium">
+              Generate {generateMode}
             </button>
             <button onClick={() => { setGenerateMode(null); setGeneratePrompt(''); setError(null) }}
               className="px-3 py-1.5 border rounded text-xs hover:bg-muted"><X size={12} /></button>
@@ -446,13 +447,40 @@ export default function NotesPanel({ notebookId, notes, sources, selectedIds, ad
 
       {/* List */}
       <div className="flex-1 overflow-y-auto">
-        {notes.length === 0 ? (
+        {notes.length === 0 && pendingNotes.length === 0 ? (
           <div className="p-6 text-center text-xs text-muted-foreground">
             <p>No notes yet.</p>
             <p className="mt-1">Generate one from your sources or create one manually.</p>
           </div>
         ) : (
           <ul className="divide-y">
+            {pendingNotes.map(p => (
+              <li key={p.id} className="px-3 py-2.5 flex items-center gap-2">
+                {p.status === 'generating' ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="h-2.5 bg-muted rounded animate-pulse w-3/4" />
+                      <div className="h-2 bg-muted rounded animate-pulse w-1/2" />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0 capitalize">
+                      {p.type === 'mindmap' ? 'mind map' : p.type}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle size={12} className="text-destructive shrink-0" />
+                    <p className="flex-1 text-xs text-destructive truncate">{p.errorMsg ?? 'Generation failed'}</p>
+                    <button
+                      onClick={() => setPendingNotes(prev => prev.filter(x => x.id !== p.id))}
+                      className="p-0.5 hover:bg-muted rounded shrink-0"
+                    >
+                      <X size={11} />
+                    </button>
+                  </>
+                )}
+              </li>
+            ))}
             {notes.map(n => (
               <li
                 key={n.id}

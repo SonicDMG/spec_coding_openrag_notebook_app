@@ -5,6 +5,7 @@ export interface Notebook {
   id: string
   name: string
   openragFilterId: string
+  openragChatId?: string
   createdAt: string
 }
 

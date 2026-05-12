@@ -63,7 +63,9 @@ export async function POST(req: Request, { params }: Ctx) {
             }
           }
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Stream error'
+          const msg = e instanceof Error && e.name === 'AbortError'
+            ? 'Request timed out — the generation took too long. Try selecting fewer sources.'
+            : (e instanceof Error ? e.message : 'Stream error')
           controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: msg })}\n\n`))
         } finally {
           controller.close()

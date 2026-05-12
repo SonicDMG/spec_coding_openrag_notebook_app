@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, BookOpen, Pencil, Trash2, X, Check, Loader2, Database, FolderOpen } from 'lucide-react'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import type { Notebook } from '@/lib/types'
 
 interface NotebookSummary extends Notebook {
@@ -96,10 +97,13 @@ export default function HomePage() {
     <div className="max-w-3xl mx-auto px-6 py-12">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">My Notebooks</h1>
-        <button onClick={() => { setCreating(true); setNewName('') }}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
-          <Plus size={16} /> New notebook
-        </button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button onClick={() => { setCreating(true); setNewName('') }}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
+            <Plus size={16} /> New notebook
+          </button>
+        </div>
       </div>
 
       {error && (
