@@ -104,7 +104,7 @@ The app runs on [http://localhost:3001](http://localhost:3001).
 
 ## 4. Building the service layer
 
-We use an approach called **Spec Coding**: guiding an AI coding agent (like Claude Code, IBM Bob, or Cursor) to generate a **requirements doc**, then a **design doc** and **OpenAPI specification**, then validate coverage, and finally implement — one task at a time.
+We use an approach called **Spec Coding**: guiding an AI coding agent (like Claude Code, IBM Bob, or Cursor) to generate a **requirements doc**, then a **design doc** and **OpenAPI specification**, then validate coverage, and finally implement — one task at a time. For a deeper dive into the methodology, see the [workshop slides](assets/openrag_spec_coding.pdf).
 
 You can build **any application you like** using this approach — the notebook app is just a reference. To build something different, replace the description in prompt 4a ("an open-source, locally-runnable notebook application inspired by NotebookLM") with your own idea. The rest of the prompts work as-is.
 
