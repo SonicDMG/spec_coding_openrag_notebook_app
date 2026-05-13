@@ -158,6 +158,9 @@ Read requirements.md. From those requirements:
 6. Ask questions regarding the application tech stack to use for this type of app.
 ```
 
+> [!TIP]
+> If you're building a Python-only application with no HTTP endpoints, an `openapi.yaml` may not apply to your project. Ask your agent: _"Does my project need an OpenAPI spec, and if not, what should I use instead?"_
+
 ### 4c. Prompt for validating the OpenAPI spec
 
 ```
