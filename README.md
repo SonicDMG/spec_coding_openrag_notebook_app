@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/openrag-logo.svg" alt="OpenRAG" width="120" style="background:#1e1b2e; border-radius:12px; padding:16px;" />
 
-  # 🐕 Spec Code Your Next RAG App 🤖
+  # 🐕 Spec Code Your Next Agentic RAG App 🤖
 
   ### Build AI-powered applications in minutes using OpenRAG and your favorite AI coding agent
 
@@ -50,7 +50,7 @@ Please fetch and install both OpenRAG SKILLs into your global skills directory:
 
 ## 2. Set up OpenRAG
 
-This application uses [OpenRAG](https://openr.ag) as its document store and RAG engine. OpenRAG handles document ingestion, vector embeddings, knowledge filters, and chat.
+This application uses [OpenRAG](https://openr.ag) as its agentic document store and RAG engine. OpenRAG handles document ingestion, vector embeddings, knowledge filters, and chat.
 
 You have two options for getting OpenRAG running. Choose one:
 
@@ -197,7 +197,7 @@ Can you help me build a three-panel web UI on top of the service layer? The left
 
 ## Wrapping up
 
-If you've made it this far, you've spec coded a working RAG-powered application from scratch using an AI coding agent — nice work. From here, the app is yours to extend, redesign, or tear down and rebuild in a completely different direction.
+If you've made it this far, you've spec coded a working agentic RAG-powered application from scratch using an AI coding agent — nice work. From here, the app is yours to extend, redesign, or tear down and rebuild in a completely different direction.
 
 ### Troubleshooting
 
