@@ -52,13 +52,11 @@ Please fetch and install both OpenRAG SKILLs into your global skills directory:
 
 This application uses [OpenRAG](https://openr.ag) as its document store and RAG engine. OpenRAG handles document ingestion, vector embeddings, knowledge filters, and chat.
 
-### 2a. Run OpenRAG locally
+You have two options for getting OpenRAG running. Choose one:
 
-Follow the [OpenRAG quickstart](https://docs.openr.ag/quickstart) to get a local instance running. By default it listens on port `3000`.
+### 2a. Use the SKILL (recommended)
 
-### 2b. Install OpenRAG using the SKILL (alternative)
-
-With the install SKILL already set up in step 1, simply invoke it:
+Since you're already here for a spec coding workshop, let your agent do the work. Simply invoke the install SKILL you set up in step 1:
 
 ```
 /openrag_install
@@ -68,6 +66,10 @@ With the install SKILL already set up in step 1, simply invoke it:
 > The `/openrag_install` syntax is for Claude Code. Other agents may invoke skills differently — if it doesn't work, ask your agent: _"How do I invoke the openrag_install and openrag_sdk skills?"_
 
 The SKILL will draft a requirements spec, create a task list, guide you through configuration, and verify that OpenRAG is running at `http://localhost:3000` before finishing.
+
+### 2b. Install manually (alternative)
+
+Follow the [OpenRAG quickstart](https://docs.openr.ag/quickstart) to get a local instance running. By default it listens on port `3000`.
 
 ### 2c. Obtain your OpenRAG API key
 
