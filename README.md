@@ -60,7 +60,10 @@ Once OpenRAG is running at `http://localhost:3000`:
 1. Open **Settings** from the left navigation
 2. Scroll to the **API Keys** section
 3. Click **Create your first API key**, give it a name, and confirm
-4. Copy the key immediately — it starts with `orag_` and **will not be shown again**
+4. Copy the key immediately — it starts with `orag_`
+
+> [!WARNING]
+> The key will not be shown again. Copy it before closing the dialog.
 
 You will need this key in the next step.
 
@@ -106,7 +109,8 @@ The app runs on [http://localhost:3001](http://localhost:3001).
 
 We use an approach called **Spec Coding**: guiding an AI coding agent (like Claude Code, IBM Bob, or Cursor) to generate a **requirements doc**, then a **design doc** and **OpenAPI specification**, then validate coverage, and finally implement — one task at a time. For a deeper dive into the methodology, see the [workshop slides](assets/openrag_spec_coding.pdf).
 
-You can build **any application you like** using this approach — the notebook app is just a reference. To build something different, replace the description in prompt 4a ("an open-source, locally-runnable notebook application inspired by NotebookLM") with your own idea. The rest of the prompts work as-is.
+> [!NOTE]
+> You can build **any application you like** using this approach — the notebook app is just a reference. To build something different, replace the description in prompt 4a ("an open-source, locally-runnable notebook application inspired by NotebookLM") with your own idea. The rest of the prompts work as-is.
 
 ### Sample prompts
 
@@ -165,7 +169,9 @@ Run all tests. For any that fail:
 ```
 
 ## 5. Building the Web UI
-_*Bonus Step*_
+
+> [!TIP]
+> This is a bonus step — the service layer from step 4 is fully functional on its own.
 
 ```
 Can you help me build a three-panel web UI on top of the service layer? The left panel shows sources with checkboxes and a search filter. The center panel is a chat interface with streaming responses. The right panel is a notes list that supports AI-generated overviews, data tables, and mind maps. All API calls should use the endpoints defined in openapi.yaml.
