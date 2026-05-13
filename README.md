@@ -71,6 +71,8 @@ You will need this key in the next step.
 
 This repo includes a fully built reference implementation. If you'd like to run it before building your own, follow these steps.
 
+<img src="assets/notebooklm_oss_app.png" alt="OpenRAG Notebook App" width="800" />
+
 ### 3a. Configure your environment
 
 Copy the example environment file and fill in your values:
