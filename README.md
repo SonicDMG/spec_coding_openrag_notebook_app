@@ -34,13 +34,13 @@
 
 **To run this workshop:**
 - An OpenRAG instance (local or hosted)
-- An agentic coding tool ([IBM Bob](https://www.ibm.com/products/bob), [Claude Code](https://claude.ai/code), [Cursor](https://cursor.com), etc.)
+- An agentic coding tool ([IBM Bob](https://www.ibm.com/products/bob), [Claude Code](https://claude.ai/code), [GitHub Copilot](https://github.com/features/copilot), etc.)
 
 ## 1. Install OpenRAG SKILLs
 
 Before anything else, install both OpenRAG SKILLs into your AI coding agent. This gives your agent the knowledge it needs to install OpenRAG and integrate with it throughout the workshop — with no interruptions later.
 
-Ask your AI coding agent ([IBM Bob](https://www.ibm.com/products/bob), [Claude Code](https://claude.ai/code), [Cursor](https://cursor.com), etc.) to run the following:
+Ask your AI coding agent ([IBM Bob](https://www.ibm.com/products/bob), [Claude Code](https://claude.ai/code), [GitHub Copilot](https://github.com/features/copilot), etc.) to run the following:
 
 ```
 Please fetch and install both OpenRAG SKILLs into your global skills directory:
@@ -125,7 +125,7 @@ The app runs on [http://localhost:3001](http://localhost:3001).
 
 ## 4. Building the service layer
 
-We use an approach called **Spec Coding**: guiding an AI coding agent (like [IBM Bob](https://www.ibm.com/products/bob), [Claude Code](https://claude.ai/code), or [Cursor](https://cursor.com)) to generate a **requirements doc**, then a **design doc** and **[OpenAPI specification](https://swagger.io/specification/)**, then validate coverage, and finally implement — one task at a time. For a deeper dive into the methodology, see the [workshop slides](assets/openrag_spec_coding.pdf).
+We use an approach called **Spec Coding**: guiding an AI coding agent (like [IBM Bob](https://www.ibm.com/products/bob), [Claude Code](https://claude.ai/code), or [GitHub Copilot](https://github.com/features/copilot)) to generate a **requirements doc**, then a **design doc** and **[OpenAPI specification](https://swagger.io/specification/)**, then validate coverage, and finally implement — one task at a time. For a deeper dive into the methodology, see the [workshop slides](assets/openrag_spec_coding.pdf).
 
 > [!NOTE]
 > You can build **any application you like** using this approach — the notebook app is just a reference. To build something different, replace the description in prompt 4a ("an open-source, locally-runnable notebook application inspired by NotebookLM") with your own idea. The rest of the prompts work as-is.
