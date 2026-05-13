@@ -64,6 +64,9 @@ With the install SKILL already set up in step 1, simply invoke it:
 /openrag_install
 ```
 
+> [!TIP]
+> The `/openrag_install` syntax is for Claude Code. Other agents may invoke skills differently — if it doesn't work, ask your agent: _"How do I invoke the openrag_install and openrag_sdk skills?"_
+
 The SKILL will draft a requirements spec, create a task list, guide you through configuration, and verify that OpenRAG is running at `http://localhost:3000` before finishing.
 
 ### 2c. Obtain your OpenRAG API key
