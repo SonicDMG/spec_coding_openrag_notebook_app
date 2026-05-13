@@ -21,7 +21,7 @@
 
 ## Prerequisites
 
-**To run OpenRAG locally:**
+**To run OpenRAG locally** ([full install docs](https://docs.openr.ag/install-options)):
 - macOS or Linux (Windows via WSL only)
 - Python 3.13
 - Docker or Podman with Compose support
