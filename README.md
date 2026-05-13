@@ -20,8 +20,21 @@
 5. [Building the Web UI](#5-building-the-web-ui)
 
 ## Prerequisites
- - An OpenRAG instance (local or hosted)
- - An agentic coding tool (Claude Code, IBM Bob, Cursor, etc.)
+
+**To run OpenRAG locally:**
+- macOS or Linux (Windows via WSL only)
+- Python 3.13
+- Docker or Podman with Compose support
+- 8 GB RAM minimum
+- 50 GB free disk space
+- Access to at least one LLM provider (OpenAI, Anthropic, Ollama, or watsonx.ai)
+
+> [!CAUTION]
+> If your machine doesn't meet these requirements, OpenRAG may install but won't run reliably. Proceed at your own risk.
+
+**To run this workshop:**
+- An OpenRAG instance (local or hosted)
+- An agentic coding tool (Claude Code, IBM Bob, Cursor, etc.)
 
 ## 1. Install OpenRAG SKILLs
 
