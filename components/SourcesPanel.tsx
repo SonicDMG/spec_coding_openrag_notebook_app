@@ -1,10 +1,11 @@
 'use client'
 import { useState, useRef } from 'react'
-import { FileText, Globe, AlignLeft, Table, Trash2, Plus, X, Search, CheckSquare, Square, Loader2, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
+import { FileText, FolderOpen, Globe, AlignLeft, Table, Trash2, Plus, X, Search, CheckSquare, Square, Loader2, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Source } from '@/lib/types'
 import { showError } from './ErrorToast'
 
 const MAX_CONCURRENT_UPLOADS = 8
+const ALLOWED_EXTS = ['.pdf', '.csv', '.md', '.html', '.docx', '.txt']
 
 type UploadTask = {
   id: string
@@ -46,6 +47,7 @@ export function SourcesPanel({
   const [error, setError] = useState<string | null>(null)
   const [uploadQueue, setUploadQueue] = useState<UploadTask[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
 
   const filtered = sources.filter(s => s.title.toLowerCase().includes(search.toLowerCase()))
   const selectedCount = sources.filter(s => selectedIds.has(s.id)).length
@@ -118,9 +120,10 @@ export function SourcesPanel({
 
   function handleFileSelect(files: FileList | null) {
     if (!files?.length) return
-    const tasks: UploadTask[] = Array.from(files).map(file => ({
-      id: `${Date.now()}-${Math.random()}`, file, status: 'pending' as const,
-    }))
+    const tasks: UploadTask[] = Array.from(files)
+      .filter(f => ALLOWED_EXTS.some(ext => f.name.toLowerCase().endsWith(ext)))
+      .map(file => ({ id: `${Date.now()}-${Math.random()}`, file, status: 'pending' as const }))
+    if (!tasks.length) return
     setUploadQueue(tasks)
     processQueue(tasks)
   }
@@ -220,14 +223,26 @@ export function SourcesPanel({
           </div>
 
           {addMode === 'file' && (
-            <div
-              className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <FileText size={20} className="mx-auto mb-1 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Click to select PDF, CSV, MD, HTML, DOCX, or TXT</p>
-              <input ref={fileInputRef} type="file" multiple accept=".pdf,.csv,.md,.html,.docx,.txt" className="hidden"
-                onChange={e => handleFileSelect(e.target.files)} />
+            <div className="space-y-2">
+              <div
+                className="border-2 border-dashed border-border rounded-md p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <FileText size={20} className="mx-auto mb-1 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Click to select files (PDF, CSV, MD, HTML, DOCX, TXT)</p>
+                <input ref={fileInputRef} type="file" multiple accept=".pdf,.csv,.md,.html,.docx,.txt" className="hidden"
+                  onChange={e => handleFileSelect(e.target.files)} />
+              </div>
+              <div
+                className="border-2 border-dashed border-border rounded-md p-3 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => folderInputRef.current?.click()}
+              >
+                <FolderOpen size={18} className="mx-auto mb-1 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Click to upload a folder (includes subfolders)</p>
+                <input ref={folderInputRef} type="file" multiple className="hidden"
+                  {...({ webkitdirectory: '' } as {})}
+                  onChange={e => handleFileSelect(e.target.files)} />
+              </div>
             </div>
           )}
 
