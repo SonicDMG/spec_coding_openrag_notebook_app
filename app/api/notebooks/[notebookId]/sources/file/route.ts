@@ -37,7 +37,7 @@ function sourceTypeFromExt(ext: string): SourceType {
 }
 
 // Increase timeout for large file uploads
-export const maxDuration = 300 // 5 minutes
+export const maxDuration = 600 // 10 minutes
 
 export async function POST(req: Request, { params }: Ctx) {
   const { notebookId } = await params

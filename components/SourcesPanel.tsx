@@ -4,7 +4,7 @@ import { FileText, Globe, AlignLeft, Table, Trash2, Plus, X, Search, CheckSquare
 import { Source } from '@/lib/types'
 import { showError } from './ErrorToast'
 
-const MAX_CONCURRENT_UPLOADS = 2
+const MAX_CONCURRENT_UPLOADS = 8
 
 type UploadTask = {
   id: string
