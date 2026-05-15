@@ -24,21 +24,17 @@ function buildQueryData(filenames: string[]) {
 export async function createNotebookFilter(notebookId: string, notebookName: string): Promise<string> {
   const filterName = buildFilterName(notebookName)
 
-  try {
-    const existingFilters = await openrag.knowledgeFilters.search(filterName, 10)
-    const matchingFilter = existingFilters.find(f => f.name === filterName)
+  // Use a generous limit so we don't miss an existing filter when there are many
+  const existingFilters = await openrag.knowledgeFilters.search(filterName, 100)
+  const matchingFilter = existingFilters.find(f => f.name === filterName)
 
-    if (matchingFilter) {
-      const owner = getNotebookByFilterId(matchingFilter.id)
-      if (owner && owner.id !== notebookId) {
-        throw Object.assign(new Error(`A notebook named "${notebookName}" already exists. Choose a different name.`), { code: 'FILTER_NAME_CONFLICT' })
-      }
-      console.log(`Found existing filter for notebook ${notebookId}: ${matchingFilter.id}`)
-      return matchingFilter.id
+  if (matchingFilter) {
+    const owner = getNotebookByFilterId(matchingFilter.id)
+    if (owner && owner.id !== notebookId) {
+      throw Object.assign(new Error(`A notebook named "${notebookName}" already exists. Choose a different name.`), { code: 'FILTER_NAME_CONFLICT' })
     }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'FILTER_NAME_CONFLICT') throw error
-    console.error('Error searching for existing filter:', error)
+    console.log(`Found existing filter for notebook ${notebookId}: ${matchingFilter.id}`)
+    return matchingFilter.id
   }
 
   const result = await openrag.knowledgeFilters.create({
@@ -72,18 +68,30 @@ export async function updateNotebookFilter(filterId: string, notebookId: string)
     } catch (error) {
       console.error('Filter update failed:', error)
       if ((error as any)?.name === 'NotFoundError') {
-        // The filter was deleted from OpenRAG (e.g. manual cleanup). Find or
-        // recreate it and update the notebook record so future calls use the
-        // correct ID.
+        // The filter may be gone from OpenRAG (e.g. external cleanup) or the
+        // error could be transient. Verify before taking action to avoid
+        // creating duplicate filters.
         try {
           const notebook = getNotebook(notebookId)
           if (notebook) {
-            const newFilterId = await createNotebookFilter(notebookId, notebook.name)
-            updateNotebook(notebookId, { openragFilterId: newFilterId })
-            await openrag.knowledgeFilters.update(newFilterId, {
+            let targetFilterId = filterId
+            try {
+              // Confirm the filter is truly gone — get() throws NotFoundError if so
+              await openrag.knowledgeFilters.get(filterId)
+              // Filter still exists; the update NotFoundError was transient — retry
+              await openrag.knowledgeFilters.update(filterId, { queryData: buildQueryData(filenames) })
+              console.log(`Filter update retried for notebook ${notebookId}`)
+              return
+            } catch (verifyError) {
+              if ((verifyError as any)?.name !== 'NotFoundError') throw verifyError
+              // Truly gone — find the existing filter by name or create a new one
+              targetFilterId = await createNotebookFilter(notebookId, notebook.name)
+              updateNotebook(notebookId, { openragFilterId: targetFilterId })
+            }
+            await openrag.knowledgeFilters.update(targetFilterId, {
               queryData: buildQueryData(filenames),
             })
-            console.log(`Filter re-linked for notebook ${notebookId}: ${newFilterId}`)
+            console.log(`Filter re-linked for notebook ${notebookId}: ${targetFilterId}`)
           }
         } catch (relinkError) {
           console.error('Filter re-link failed:', relinkError)
