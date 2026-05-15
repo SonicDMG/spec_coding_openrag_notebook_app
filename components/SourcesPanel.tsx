@@ -4,7 +4,7 @@ import { FileText, FolderOpen, Globe, AlignLeft, Table, Trash2, Plus, X, Search,
 import { Source } from '@/lib/types'
 import { showError } from './ErrorToast'
 
-const MAX_CONCURRENT_UPLOADS = 8
+const MAX_CONCURRENT_UPLOADS = 2
 const ALLOWED_EXTS = ['.pdf', '.csv', '.md', '.html', '.docx', '.txt']
 
 type UploadTask = {
