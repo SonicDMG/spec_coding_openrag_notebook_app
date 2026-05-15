@@ -61,7 +61,7 @@ export async function POST(req: Request, { params }: Ctx) {
       }
       // Same content → share existing OpenRAG document
       const source = createSource({ id: `src_${uuid()}`, notebookId, title: finalTitle, type: 'url', url, openragFilename, contentHash, createdAt: new Date().toISOString() })
-      await updateNotebookFilter(notebook.openragFilterId, notebookId)
+      await updateNotebookFilter(notebookId)
       return NextResponse.json(source, { status: 201 })
     }
 
@@ -80,7 +80,7 @@ export async function POST(req: Request, { params }: Ctx) {
       createdAt: new Date().toISOString()
     })
 
-    await updateNotebookFilter(notebook.openragFilterId, notebookId)
+    await updateNotebookFilter(notebookId)
     return NextResponse.json(source, { status: 201 })
   } catch (e) {
     if (e instanceof TypeError && e.message.includes('fetch')) {

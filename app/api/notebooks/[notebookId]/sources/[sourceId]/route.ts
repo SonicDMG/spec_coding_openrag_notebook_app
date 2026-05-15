@@ -20,7 +20,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     try { await openrag.documents.delete(source.openragFilename) } catch { /* best-effort */ }
   }
 
-  try { await updateNotebookFilter(notebook.openragFilterId, notebookId) } catch { /* best-effort */ }
+  try { await updateNotebookFilter(notebookId) } catch { /* best-effort */ }
 
   return new Response(null, { status: 204 })
 }

@@ -6,8 +6,10 @@ import type { SourceType } from './types'
 export const QUERY_LIMIT = 10
 export const QUERY_SCORE_THRESHOLD = 0.3
 
-// In-memory lock to prevent concurrent filter updates for the same notebook
-const filterUpdateLocks = new Map<string, Promise<void>>()
+// FIFO queue per notebook — each call chains onto the previous so concurrent
+// uploads serialize instead of racing. The stored promise is always
+// non-rejecting so the queue keeps draining even when a step fails.
+const filterQueues = new Map<string, Promise<void>>()
 
 function buildFilterName(notebookName: string): string {
   return notebookName.replace(/\s+/g, '-').replace(/[^\w\-]/g, '').slice(0, 60) || 'notebook'
@@ -46,64 +48,55 @@ export async function createNotebookFilter(notebookId: string, notebookName: str
   return result.id!
 }
 
-export async function updateNotebookFilter(filterId: string, notebookId: string): Promise<void> {
-  const existingLock = filterUpdateLocks.get(notebookId)
-  if (existingLock) {
-    await existingLock
-  }
+// Enqueue an update for a notebook's filter. Concurrent calls for the same
+// notebook are serialized in arrival order so they don't race.
+export function updateNotebookFilter(notebookId: string): Promise<void> {
+  const prev = filterQueues.get(notebookId) ?? Promise.resolve()
+  const work = prev.then(() => _doFilterUpdate(notebookId))
+  // Store a non-rejecting tail so the queue keeps draining even after failures
+  filterQueues.set(notebookId, work.catch(() => {}))
+  return work
+}
 
-  const updatePromise = (async () => {
-    const sources = getSources(notebookId)
-    const filenames = sources.map(s => s.openragFilename)
+async function _doFilterUpdate(notebookId: string): Promise<void> {
+  const notebook = getNotebook(notebookId)
+  if (!notebook) return
 
-    if (filenames.length === 0) {
-      filterUpdateLocks.delete(notebookId)
-      return
-    }
+  // Read filterId fresh — it may have been updated by a previous step's recovery
+  const filterId = notebook.openragFilterId
+  const sources = getSources(notebookId)
+  const filenames = sources.map(s => s.openragFilename)
 
-    try {
-      await openrag.knowledgeFilters.update(filterId, {
-        queryData: buildQueryData(filenames),
-      })
-    } catch (error) {
-      console.error('Filter update failed:', error)
-      if ((error as any)?.name === 'NotFoundError') {
-        // The filter may be gone from OpenRAG (e.g. external cleanup) or the
-        // error could be transient. Verify before taking action to avoid
-        // creating duplicate filters.
+  if (filenames.length === 0) return
+
+  try {
+    await openrag.knowledgeFilters.update(filterId, {
+      queryData: buildQueryData(filenames),
+    })
+  } catch (error) {
+    console.error('Filter update failed:', error)
+    if ((error as any)?.name === 'NotFoundError') {
+      try {
         try {
-          const notebook = getNotebook(notebookId)
-          if (notebook) {
-            let targetFilterId = filterId
-            try {
-              // Confirm the filter is truly gone — get() throws NotFoundError if so
-              await openrag.knowledgeFilters.get(filterId)
-              // Filter still exists; the update NotFoundError was transient — retry
-              await openrag.knowledgeFilters.update(filterId, { queryData: buildQueryData(filenames) })
-              console.log(`Filter update retried for notebook ${notebookId}`)
-              return
-            } catch (verifyError) {
-              if ((verifyError as any)?.name !== 'NotFoundError') throw verifyError
-              // Truly gone — find the existing filter by name or create a new one
-              targetFilterId = await createNotebookFilter(notebookId, notebook.name)
-              updateNotebook(notebookId, { openragFilterId: targetFilterId })
-            }
-            await openrag.knowledgeFilters.update(targetFilterId, {
-              queryData: buildQueryData(filenames),
-            })
-            console.log(`Filter re-linked for notebook ${notebookId}: ${targetFilterId}`)
-          }
-        } catch (relinkError) {
-          console.error('Filter re-link failed:', relinkError)
+          // Confirm the filter is truly gone — get() throws NotFoundError if so
+          await openrag.knowledgeFilters.get(filterId)
+          // Filter still exists; the update NotFoundError was transient — retry
+          await openrag.knowledgeFilters.update(filterId, { queryData: buildQueryData(filenames) })
+          console.log(`Filter update retried for notebook ${notebookId}`)
+          return
+        } catch (verifyError) {
+          if ((verifyError as any)?.name !== 'NotFoundError') throw verifyError
+          // Truly gone — find the existing filter by name or create a new one
         }
+        const targetFilterId = await createNotebookFilter(notebookId, notebook.name)
+        updateNotebook(notebookId, { openragFilterId: targetFilterId })
+        await openrag.knowledgeFilters.update(targetFilterId, { queryData: buildQueryData(filenames) })
+        console.log(`Filter re-linked for notebook ${notebookId}: ${targetFilterId}`)
+      } catch (relinkError) {
+        console.error('Filter re-link failed:', relinkError)
       }
-    } finally {
-      filterUpdateLocks.delete(notebookId)
     }
-  })()
-
-  filterUpdateLocks.set(notebookId, updatePromise)
-  await updatePromise
+  }
 }
 
 export async function importNotebookFilterSources(notebookId: string, filterId: string): Promise<number> {

@@ -86,7 +86,7 @@ export async function POST(req: Request, { params }: Ctx) {
         contentHash,
         createdAt: new Date().toISOString(),
       })
-      await updateNotebookFilter(notebook.openragFilterId, notebookId)
+      await updateNotebookFilter(notebookId)
       return NextResponse.json(source, { status: 201 })
     }
 
@@ -108,7 +108,7 @@ export async function POST(req: Request, { params }: Ctx) {
       createdAt: new Date().toISOString(),
     })
 
-    await updateNotebookFilter(notebook.openragFilterId, notebookId)
+    await updateNotebookFilter(notebookId)
     return NextResponse.json(source, { status: 201 })
   } catch (e) {
     console.error('File upload error:', e)
